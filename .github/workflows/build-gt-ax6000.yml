@@ -1,0 +1,55 @@
+name: build-gt-ax6000
+
+# Builds GT-AX6000 firmware from this branch in gnuton's Merlin toolchain container.
+# Recipe: RMerl tools/build-all (SDK src-rt-5.04axhnd.675x, `make gt-ax6000`) + gnuton's CI layout.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ap-stripdown]
+    paths-ignore: ['**.md']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    container:
+      image: gnuton/asuswrt-merlin-toolchains-docker:latest
+      options: --user docker
+      volumes:
+        - /mnt:/project   # the runner's /mnt disk is much larger than /
+    env:
+      SDK_DIR: /project/src/release/src-rt-5.04axhnd.675x
+    steps:
+      - name: Disk and toolchain check
+        run: |
+          sudo chown docker /project
+          sudo chmod -R a+rwX /__w/_temp   # let upload-artifact write runner files as the docker user
+          df -h / /project
+          ls /home/docker/am-toolchains/brcm-arm-hnd/ | grep -i 9.2
+      - name: Clone this branch
+        run: git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" /project/src
+      - name: Build
+        working-directory: ${{ env.SDK_DIR }}
+        shell: bash
+        run: |
+          source /home/docker/envs/bcm-hnd-ax-4.19.sh
+          make gt-ax6000 > /project/build.log 2>&1 || { tail -n 200 /project/build.log; exit 1; }
+          tail -n 30 /project/build.log
+          df -h /project
+      - name: Collect image
+        if: success()
+        run: |
+          mkdir -p /project/out
+          cp "$SDK_DIR"/image/*_nand_squashfs.pkgtb /project/out/
+          cd /project/out && sha256sum * > sha256sums.txt && cat sha256sums.txt && ls -l
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: gt-ax6000-${{ github.sha }}
+          path: /project/out/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log-${{ github.sha }}
+          path: /project/build.log
+          if-no-files-found: ignore
