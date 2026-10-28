@@ -32,6 +32,8 @@ jobs:
         id: build
         working-directory: ${{ env.SDK_DIR }}
         shell: bash
+        env:
+          MERLINUPDATE: y   # matches the official release build; see docs/baseline-3006.102.9-ci-vs-official.md
         run: |
           source /home/docker/envs/bcm-hnd-ax-4.19.sh
           make gt-ax6000 > /project/build.log 2>&1 || { tail -n 200 /project/build.log; exit 1; }
