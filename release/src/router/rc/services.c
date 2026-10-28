@@ -4609,6 +4609,11 @@ start_infosvr()
 		return 0;
 #endif
 
+	if (nvram_match("disable_infosvr", "1")) {
+		stop_infosvr();
+		return 0;
+	}
+
 	return _eval(infosvr_argv, NULL, 0, &pid);
 }
 
