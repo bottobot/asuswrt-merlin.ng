@@ -13,11 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     container:
-      image: gnuton/asuswrt-merlin-toolchains-docker:20250107
+      # Pinned by digest: this was the `latest` tag on 2026-10-28 (the image used by the first green build). Bump by hand.
+      image: gnuton/asuswrt-merlin-toolchains-docker@sha256:8c9681987352d6eb8a38708126c9c39edd8dd28a7bf6c0cedc0e9534387f9ab3
       # The image's default user is `docker`. As that user the runner's per-step
       # files under /__w/_temp/_runner_file_commands are unwritable, so
       # upload-artifact's set_output fails (EACCES) after the upload succeeded.
-      # Run the container as root and drop to docker only for the build.
+      # Run the container as root and drop to docker only for the clone and
+      # the build, because the SDK's prebuild_checks refuses to build as root.
       options: --user root
       volumes:
         - /mnt:/project   # the runner's /mnt disk is much larger than /
@@ -33,11 +35,12 @@ jobs:
           chown docker /project
           sudo -u docker -H git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" /project/src
       - name: Build
-        # The SDK's prebuild_checks refuses to build as root, so drop to the
-        # image's docker user (passwordless sudo, needed by the env script).
+        id: build
         shell: bash
+        env:
+          MERLINUPDATE: y   # matches the official release build; see docs/baseline-3006.102.9-ci-vs-official.md
         run: |
-          sudo -u docker -H env SDK_DIR="$SDK_DIR" bash -c '
+          sudo -u docker -H env SDK_DIR="$SDK_DIR" MERLINUPDATE="$MERLINUPDATE" bash -c '
             source /home/docker/envs/bcm-hnd-ax-4.19.sh
             cd "$SDK_DIR"
             make gt-ax6000 > /project/build.log 2>&1 || { tail -n 200 /project/build.log; exit 1; }
@@ -61,3 +64,13 @@ jobs:
           name: build-log-${{ github.sha }}
           path: /project/build.log
           if-no-files-found: ignore
+      - name: Verify firmware artifact was uploaded
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ "$BUILD_OUTCOME" = success ] || { echo "build did not succeed ($BUILD_OUTCOME); nothing to verify"; exit 0; }
+          curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" | tee /tmp/artifacts.json | grep '"name"'
+          grep -q "\"name\": *\"gt-ax6000-$GITHUB_SHA\"" /tmp/artifacts.json || { echo "artifact gt-ax6000-$GITHUB_SHA missing"; exit 1; }

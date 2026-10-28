@@ -15,7 +15,8 @@ no_loader_needed: no documented min stock fw/bootloader for 3006.102.x on GT-AX6
 branches: ap-stripdown(default)=upstream+README+CI; main=upstream mirror; claude/great-dirac-e98rgz=this work
 ci=.github/workflows/build-gt-ax6000.yml (gnuton container, /mnt->/project, make gt-ax6000)
 ci_runs: #1 fail; #2 (9c96e1f) build OK 63min, image 70438876B sha256=072db7cf...882f6, artifacts uploaded (id 12798202289 fw, 12797389280 log) BUT job marked failed: EACCES /__w/_temp/_runner_file_commands/set_output_* (runner creates per-step files as host uid; container runs --user docker; chmod in step3 does not cover later-created files)
-ci_fix=container --user root (runner per-step files need root) + sudo -u docker for clone and make (SDK make.common:3470 prebuild_checks refuses root). VERIFIED run 40684815903 @98fd4e0: success, build 42min, artifacts gt-ax6000-<sha> (66.8MB zip) + build-log-<sha>
+ci_fix=container --user root (runner per-step files need root) + sudo -u docker for clone and make (SDK make.common:3470 prebuild_checks refuses root). VERIFIED run 40684815903 @98fd4e0: success, build 42min, artifacts gt-ax6000-<sha> (66.8MB zip) + build-log-<sha>. Merged with ap-stripdown 55c9f3a: image pinned by digest, MERLINUPDATE=y, artifact verify step
+baseline_done=docs/baseline-3006.102.9-ci-vs-official.md (CI 9c96e1f vs official): only real diff = CI lacked MERLINUPDATE=y (ASUS webs_update.sh vs Merlin's); rest = timestamps, build path, mode, locale noise
 ci_disk: /project 145G, 80G used after build; / not used
 ci_vs_official_size: 70438876 vs 70438392 (+484B); expect diffs only in timestamps/FIT metadata; verify with tools/pkgtb-compare.sh
 local_tree_size: src-rt-5.04axhnd.675x=1.8G src=2.3G
@@ -96,8 +97,8 @@ no_existing_AP_strip_project found; SNB kill-script threads (.83353) confirm wat
 
 ## 6.plan
 P0 verify_baseline (CI only)
- 1. apply CI root fix; rerun; confirm green + artifact
- 2. CI step: fetch official zip, tools/pkgtb-unpack.sh both, tools/pkgtb-compare.sh -> expect diff set = {timestamps, build-info files, FIT hashes}; record allowed-diff list in docs
+ 1. DONE CI root fix verified green
+ 2. DONE manual baseline diff (docs/baseline-3006.102.9-ci-vs-official.md); MERLINUPDATE=y applied. TODO automate as CI step with tools/pkgtb-unpack.sh + tools/pkgtb-compare.sh against official zip; re-baseline once with MERLINUPDATE=y build
  3. user: flash CI-built unmodified image on test unit in AP mode; capture ps/netstat/nvram baseline -> docs/baseline-ap.txt
 P1 nvram-only hardening (no code change; reversible; validates assumptions)
  aae_disable_force=1 wanduck_down=1 stop_amas_lldpd=1 enable_samba=0 usb_enable=0 ntpd_enable=0 telnetd_enable=0 snmpd_enable=0 sshd_enable=1(lan) firmware_check_enable=0
