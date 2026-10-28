@@ -169,3 +169,29 @@ usr/sbin/webs_note.sh 644/755
 </details>
 
 Extracted trees (sandbox only, not committed): `/tmp/t2/x/{ci,off}/{rootfs,boot}`.
+
+## Update 1b: CI build with `MERLINUPDATE=y`
+
+Run 40690847523 (commit `55c9f3a`, Build step exports `MERLINUPDATE=y`). Artifact
+`gt-ax6000-55c9f3acacdaf070232b85b8ebb03b4a3d98ef5a`; pkgtb 70,438,868 bytes, sha256
+`434f8a5df922b8df02eebb036e65076f50d17699feb34b7bec1a0e96c6fe627a` (official:
+`f64453852fb3eacb996978cc2c0abc505e744c7a9a3a4522f0a98866e2c7a7e0`). Compared by unpacking the
+rootfs (`dumpimage -T flat_dt -p 1`, `unsquashfs -no-xattrs`) and hashing every regular file.
+
+* `rom/rtconfig` now contains `RTCONFIG_MERLINUPDATE=y`, as in the official image.
+* `usr/sbin/webs_upgrade.sh` is absent; `usr/sbin/webs_update.sh` and `usr/sbin/webs_note.sh`
+  are byte-identical to the official ones.
+* Content-differing regular files: 77 (was 82). No more paths only in one image apart from the
+  empty build-path directories under `lib/modules/4.19.183/kernel/`. `sbin/rc` and
+  `usr/sbin/chilli_opt` are now identical to official; `libshared.so` is the same size
+  (13 differing bytes).
+* Remaining differences are all in the documented noise classes: timestamps/build id
+  (`motd`, `image_version`, `busybox`, `lighttpd`, ...), embedded build and toolchain paths
+  (`/project/src` vs `/workspace/build/amng.gtax6000`, `/home/docker` vs `/home/merlin/soft`;
+  this also explains the size differences of `lldpd` and `libwpa_client.so`, which come from
+  debug-info string lengths), `modules.dep`/`modules.order` ordering, `Lang_Hdr.txt` locale, and
+  umask modes (group-write bit on `rom/etc/*`, 48 paths).
+
+Verdict: with `MERLINUPDATE=y` the fork's CI build reproduces the official 3006.102.9 GT-AX6000
+rootfs up to build noise; the only real configuration difference found earlier is gone. Not
+verified: kernel and ATF payloads were not decompressed.
