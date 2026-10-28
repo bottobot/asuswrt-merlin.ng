@@ -15,7 +15,7 @@ no_loader_needed: no documented min stock fw/bootloader for 3006.102.x on GT-AX6
 branches: ap-stripdown(default)=upstream+README+CI; main=upstream mirror; claude/great-dirac-e98rgz=this work
 ci=.github/workflows/build-gt-ax6000.yml (gnuton container, /mnt->/project, make gt-ax6000)
 ci_runs: #1 fail; #2 (9c96e1f) build OK 63min, image 70438876B sha256=072db7cf...882f6, artifacts uploaded (id 12798202289 fw, 12797389280 log) BUT job marked failed: EACCES /__w/_temp/_runner_file_commands/set_output_* (runner creates per-step files as host uid; container runs --user docker; chmod in step3 does not cover later-created files)
-ci_fix=run container as root (drop --user docker; env script sudo ln still works) [applied this commit, unverified until next run]
+ci_fix=container --user root (runner per-step files need root) + sudo -u docker for clone and make (SDK make.common:3470 prebuild_checks refuses root). VERIFIED run 40684815903 @98fd4e0: success, build 42min, artifacts gt-ax6000-<sha> (66.8MB zip) + build-log-<sha>
 ci_disk: /project 145G, 80G used after build; / not used
 ci_vs_official_size: 70438876 vs 70438392 (+484B); expect diffs only in timestamps/FIT metadata; verify with tools/pkgtb-compare.sh
 local_tree_size: src-rt-5.04axhnd.675x=1.8G src=2.3G
