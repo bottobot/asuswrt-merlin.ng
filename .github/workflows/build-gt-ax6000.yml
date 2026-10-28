@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     container:
-      image: gnuton/asuswrt-merlin-toolchains-docker:latest
+      # Pinned by digest: this was the `latest` tag on 2026-10-28 (the image used by the first green build). Bump by hand.
+      image: gnuton/asuswrt-merlin-toolchains-docker@sha256:8c9681987352d6eb8a38708126c9c39edd8dd28a7bf6c0cedc0e9534387f9ab3
       options: --user docker
       volumes:
         - /mnt:/project   # the runner's /mnt disk is much larger than /
@@ -23,12 +24,12 @@ jobs:
       - name: Disk and toolchain check
         run: |
           sudo chown docker /project
-          sudo chmod -R a+rwX /__w/_temp   # let upload-artifact write runner files as the docker user
           df -h / /project
           ls /home/docker/am-toolchains/brcm-arm-hnd/ | grep -i 9.2
       - name: Clone this branch
         run: git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" /project/src
       - name: Build
+        id: build
         working-directory: ${{ env.SDK_DIR }}
         shell: bash
         run: |
@@ -42,14 +43,28 @@ jobs:
           mkdir -p /project/out
           cp "$SDK_DIR"/image/*_nand_squashfs.pkgtb /project/out/
           cd /project/out && sha256sum * > sha256sums.txt && cat sha256sums.txt && ls -l
+      # upload-artifact fails with EACCES on set_output under --user docker even though the upload succeeds, so it is non-fatal here;
+      # the final step verifies the artifact really exists.
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         if: success()
         with:
           name: gt-ax6000-${{ github.sha }}
           path: /project/out/
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         if: always()
         with:
           name: build-log-${{ github.sha }}
           path: /project/build.log
           if-no-files-found: ignore
+      - name: Verify firmware artifact was uploaded
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ "$BUILD_OUTCOME" = success ] || { echo "build did not succeed ($BUILD_OUTCOME); nothing to verify"; exit 0; }
+          curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" | tee /tmp/artifacts.json | grep '"name"'
+          grep -q "\"name\": *\"gt-ax6000-$GITHUB_SHA\"" /tmp/artifacts.json || { echo "artifact gt-ax6000-$GITHUB_SHA missing"; exit 1; }
