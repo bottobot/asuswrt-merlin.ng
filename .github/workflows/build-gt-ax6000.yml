@@ -14,9 +14,11 @@ jobs:
     timeout-minutes: 360
     container:
       image: gnuton/asuswrt-merlin-toolchains-docker:20250107
-      # Run as root: with --user docker the runner's per-step files under
-      # /__w/_temp/_runner_file_commands are unwritable, so upload-artifact's
-      # set_output fails (EACCES) even though the artifact was uploaded.
+      # The image's default user is `docker`. As that user the runner's per-step
+      # files under /__w/_temp/_runner_file_commands are unwritable, so
+      # upload-artifact's set_output fails (EACCES) after the upload succeeded,
+      # and the /mnt volume is not writable either. Run as root instead.
+      options: --user root
       volumes:
         - /mnt:/project   # the runner's /mnt disk is much larger than /
     env:
