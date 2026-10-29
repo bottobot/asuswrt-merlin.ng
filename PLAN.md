@@ -70,7 +70,7 @@ P4.B4|S|10|P4.B1|TODO|CAPTIVE_PORTAL=n CP_FREEWIFI=n WTFAST_V2=n (shm ABI: netwo
 P4.B5|S|10|-|TODO|LETSENCRYPT=n UPNPIGD2=n EMAIL=n|acme.sh socat miniupnpd-igdv2 removed (email stays: NC needs it)
 P4.B6|S|10|-|TODO|ACCEL_PPTPD=n WIREGUARD=n (WIREGUARD=n valid only while VPN_FUSION=y). MULTICASTIPTV KEPT: init-broadcom.c:11833 uses WAN_UNIT_IPTV unguarded (run 40898342703)|accel-pptpd wireguard-tools removed
 P4.B7|S|10|-|TODO|NATNL_AICLOUD=n ALEXA=n INTERNETCTRL=n together (keep GOOGLE_ASST=y NATNL_AIHOME=y; TUNNEL stays)|CI green
-P4.B8|S|10|-|TODO|OPENVPN=n VPNC=n together (vpnc_fusion.c calls ovpn fns unguarded; VPN_FUSION stays)|openvpn libovpn easy-rsa removed
+P4.B8|S|10|-|DROPPED|OPENVPN=n VPNC=n: rc/sdn.c (GNP) calls amvpn_set_killswitch_rules(VPNDIR_PROTO_OPENVPN) unguarded (sdn.c:1124) and vpnc_* from vpnc_fusion.o (needs VPNC) under VPN_FUSION (run 40902798521). Not worth patching GNP code for size; OpenVPN never runs in AP|-
 P4.9|O|15|P4.B1-8|TODO|review combined compare report; any removal not predicted => investigate before flash|notes
 P4.10|U|20/batch|P3.4,P4.9|TODO|flash in order B1..B8, ap-diff+TESTPLAN each|§5 PASS per batch
 ### P5 compile-out tier2: source patch required first (1 concern per commit; CI validates)
@@ -101,6 +101,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
 2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|head build|FAIL sdn.c VPNDIR_PROTO_OPENVPN (OPENVPN=n); B8 dropped|run 40902798521
 2026-10-29|P4 tip build|FAIL WAN_UNIT_IPTV (MULTICASTIPTV=n); flag kept|run 40898342703, fix ffa4a2e
 
 ## 6.EXECUTION RULES
