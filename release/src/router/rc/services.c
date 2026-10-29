@@ -14882,7 +14882,9 @@ void check_services(void)
 	_check_init_x(start_amas_lldpd);
 #endif
 #ifdef RTCONFIG_ASD
-	_monitor(monitor_asd);
+	/* monitor_asd (prebuilt) would log and retry start_asd on every pass */
+	if (!nvram_match("disable_asd", "1"))
+		_monitor(monitor_asd);
 #endif
 }
 
@@ -21707,8 +21709,10 @@ void start_amas_lanctrl(void)
 		return;
 	}
 
-	if (nvram_match("disable_amas_ctl", "1") && nvram_get_int("re_mode") != 1)
+	if (nvram_match("disable_amas_ctl", "1") && nvram_get_int("re_mode") != 1) {
+		killall("amas_lanctrl", SIGTERM);	/* not stop_amas_lanctrl(): it notify_rc()s from non-init */
 		return;
+	}
 
 	if(getpid()!=1) {
 		notify_rc("start_amas_lanctrl");
