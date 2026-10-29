@@ -102,6 +102,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
 2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|PR4 compare|critical paths 26/26 present; new dangling DT_NEEDED 0 (official baseline 1: lld2d|libbcm_crc.so); removals = strongswan bwdpi netatalk minidlna nfs chilli/lighttpd aaews/mastiff infosvr networkmap asd ookla tor pptpd; /usr/lib/libws.so gone but /lib/libws.so kept (official ships both)|run 40920909282
 2026-10-29|PR4 head build P4+P5|PASS 41min; image 52,148,504 B vs 70,438,868 B (-18.3 MB, -26%)|run 40910854359
 2026-10-29|P0.5 compare|PASS: only sbin/rc beyond noise|run 40906828698
 2026-10-29|head build|FAIL httpd link prn_cert_info (IPSEC=n); moved out of IPSEC block|run 40907561586
@@ -119,3 +120,5 @@ E6 commit msg `<area>: <imperative>` + evidence (file:line, removed binaries). n
 E7 >20min => split in this file before continuing.
 E8 docs: facts in docs/gt-ax6000-ap-plan.md, order/status here only; update both in the same PR.
 E9 any PR seen => drive to merged (owner instruction 2026-10-28).
+E10 no merge of a build-affecting PR unless: CI build green on head source, compare-official critical-paths pass, new dangling DT_NEEDED = 0, removed paths match intent.
+E11 before each build that drops flags: #if-aware source scan for flag-only identifiers used unguarded + flag-gated functions called unguarded (C16).
