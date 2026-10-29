@@ -39,7 +39,7 @@ P0.2|O|15|-|DONE|baseline vs official, MERLINUPDATE=y|docs/baseline-*.md verdict
 P0.3|S|15|-|DONE|workflow: concurrency cancel, dispatch input `ref`, retention 30d, step summary sha256, paths-ignore docs/**|yaml+actionlint clean; dispatch run green
 P0.4|S|20|P0.3|DONE|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
 P0.5|H|10|P0.4|DONE|compare-official on default-branch build run 40898145376 (cef17c4): beyond noise only ./sbin/rc differs (= PR3 guards). compare run 40906828698|0 unexplained diffs
-P0.6|H|15|P0.5|TODO|metadata-differs=2407 vs ~70 in baseline doc: find cause (likely dir sizes or uid/gid in manifest.tsv); filter or fix pkgtb-unpack manifest so the count is meaningful|count explained, noise-filtered
+P0.6|H|15|P0.5|DONE|cause: since PR2 build ran via sudo -u docker with umask 002 => CI image group-writable (2386 mode-only diffs). fix umask 022 for clone+make (b181c24); after fix only baseline class remains (official rom/etc 664/775 vs build 644/755). compare now classifies metadata diffs|run 40930588678
 ### P1 (owner; scripts prepared by agents)
 P1.1|S|15|-|DONE(steps partly UNVERIFIED)|docs/RECOVERY.md (rescue mode, Firmware Restoration, TFTP, nvram reset, backup)|doc merged
 P1.2|U|20|P1.1|TODO|recovery drill on device with OFFICIAL 3006.102.9|§5: PASS + minutes
@@ -102,6 +102,8 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
 2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|P0.6 umask fix|2386 group-write diffs gone; critical 26/26; dangling new 0|build 40923528833 compare 40930588678
+2026-10-29|PR4 post-merge|default build 40921836403 green; compare 40928799673 green
 2026-10-29|PR4 compare|critical paths 26/26 present; new dangling DT_NEEDED 0 (official baseline 1: lld2d|libbcm_crc.so); removals = strongswan bwdpi netatalk minidlna nfs chilli/lighttpd aaews/mastiff infosvr networkmap asd ookla tor pptpd; /usr/lib/libws.so gone but /lib/libws.so kept (official ships both)|run 40920909282
 2026-10-29|PR4 head build P4+P5|PASS 41min; image 52,148,504 B vs 70,438,868 B (-18.3 MB, -26%)|run 40910854359
 2026-10-29|P0.5 compare|PASS: only sbin/rc beyond noise|run 40906828698
