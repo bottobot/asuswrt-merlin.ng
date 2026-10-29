@@ -19,6 +19,7 @@ C11|PR2 plan GAP|single master knob `ap_strip=1` proposed; per-daemon knobs bett
 C12|both GAP|management-plane hardening (ssh key-only, https-only, access restriction) not tasked. Add P6.
 C13|both GAP|no rule for docs drift (two plans diverged in one day). Rule E8.
 C14|v2 draft gate too strict|P4 build-only validation does not need hardware; only flashing does. Gate relaxed for CI, kept for flash.
+C16|research GAP|§8.5 scanned prebuilt LINK refs only; compile-time uses of flag-only identifiers in source (e.g. WAN_UNIT_IPTV) were missed. Added source #if-aware scan before each build.
 C15|both plans WRONG|AMAS=n listed as final step (v1 P5.6, PR2 P3): research shows it breaks GNP build; cancelled. 7 flags (ASD MEDIASRV UUPLUGIN BWDPI IPSEC INSTANT_GUARD ALEXA+GOOGLE_ASST) break rc/httpd link via prebuilt .o refs; CONNDIAG DBLOG silently forced by AMAS; NATNL_AIHOME forced by ALEXA. v1 P4.3/P4.4 (DBLOG=n CONNDIAG=n) were no-ops.
 DONE_since_v1: CI green+artifact verify (4c2f436, PR2 root fix 98fd4e0); baseline vs official (985f9b0) => only real diff MERLINUPDATE, fixed (55c9f3a), re-baselined (1011371): reproduces official up to build noise; tools/pkgtb-{unpack,compare}.sh (PR2); disable_infosvr guard (3151f6c, CI green run 40700438258).
 
@@ -36,8 +37,9 @@ P6 management hardening + release discipline
 P0.1|S|15|-|DONE|upload EACCES fix: root container, docker user for clone+make|run 40698419243 green
 P0.2|O|15|-|DONE|baseline vs official, MERLINUPDATE=y|docs/baseline-*.md verdict
 P0.3|S|15|-|DONE|workflow: concurrency cancel, dispatch input `ref`, retention 30d, step summary sha256, paths-ignore docs/**|yaml+actionlint clean; dispatch run green
-P0.4|S|20|P0.3|DONE(untested on GH until merged)|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
-P0.5|H|10|P0.4|TODO|run compare-official on run 40886333807 (PR2 merge build)|0 unexplained diffs recorded in §5
+P0.4|S|20|P0.3|DONE|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
+P0.5|H|10|P0.4|DONE|compare-official on default-branch build run 40898145376 (cef17c4): beyond noise only ./sbin/rc differs (= PR3 guards). compare run 40906828698|0 unexplained diffs
+P0.6|H|15|P0.5|TODO|metadata-differs=2407 vs ~70 in baseline doc: find cause (likely dir sizes or uid/gid in manifest.tsv); filter or fix pkgtb-unpack manifest so the count is meaningful|count explained, noise-filtered
 ### P1 (owner; scripts prepared by agents)
 P1.1|S|15|-|DONE(steps partly UNVERIFIED)|docs/RECOVERY.md (rescue mode, Firmware Restoration, TFTP, nvram reset, backup)|doc merged
 P1.2|U|20|P1.1|TODO|recovery drill on device with OFFICIAL 3006.102.9|§5: PASS + minutes
@@ -62,24 +64,24 @@ P3.4|O|10|P3.3|TODO|classify each daemon: OFF-SAFE (=>P4 candidate) | KEEP(reaso
 ### P4 compile-out tier1: flag-only, no prebuilt link refs (source: docs/gt-ax6000-ap-plan.md §8.5)
 gate change (C14): CI build+compare may run ahead of P3 for flags unrelated to P3 knobs; FLASH still waits for P1+P3. 1 commit per batch (flags listed in msg); CI may validate several batches in one build; device flashes <=1 batch at a time.
 mechanism: append `FLAG=n` at END of `export GT-AX6000 +=` (last export wins, SR:7025) incl. base-var flags (OOKLA CONNDIAG from HND-94912_BASE)
-P4.B1|S|10|-|TODO|DISABLE_NETWORKMAP=y GAME_MODE=n ADGUARDDNS=n (DISABLE_NETWORKMAP: default networkmap_enable=0, ABI precondition for B4/P5.B14)|CI green; compare: no binary removed, rc/httpd changed
-P4.B2|S|10|-|TODO|PRINTER=n TIMEMACHINE=n NFS=n (XT12 same-SDK exemplar)|compare: u2ec LPRng netatalk nfs-utils portmap removed
-P4.B3|S|10|-|TODO|SNMPD=n OOKLA=n TOR=n|net-snmp ookla tor removed
-P4.B4|S|10|P4.B1|TODO|CAPTIVE_PORTAL=n CP_FREEWIFI=n WTFAST_V2=n (shm ABI: networkmap must not run => B1 first; WTFAST_V2 no-op)|coovachilli lighttpd samba-3.5.8 removed
-P4.B5|S|10|-|TODO|LETSENCRYPT=n UPNPIGD2=n EMAIL=n|acme.sh socat miniupnpd-igdv2 removed (email stays: NC needs it)
-P4.B6|S|10|-|TODO|MULTICASTIPTV=n ACCEL_PPTPD=n WIREGUARD=n (WIREGUARD=n valid only while VPN_FUSION=y)|accel-pptpd wireguard-tools removed
-P4.B7|S|10|-|TODO|NATNL_AICLOUD=n ALEXA=n INTERNETCTRL=n together (keep GOOGLE_ASST=y NATNL_AIHOME=y; TUNNEL stays)|CI green
-P4.B8|S|10|-|TODO|OPENVPN=n VPNC=n together (vpnc_fusion.c calls ovpn fns unguarded; VPN_FUSION stays)|openvpn libovpn easy-rsa removed
+P4.B1|S|10|-|BUILT(CI green; flash pending)|DISABLE_NETWORKMAP=y GAME_MODE=n ADGUARDDNS=n (DISABLE_NETWORKMAP: default networkmap_enable=0, ABI precondition for B4/P5.B14)|CI green; compare: no binary removed, rc/httpd changed
+P4.B2|S|10|-|BUILT(CI green; flash pending)|PRINTER=n TIMEMACHINE=n NFS=n (XT12 same-SDK exemplar)|compare: u2ec LPRng netatalk nfs-utils portmap removed
+P4.B3|S|10|-|BUILT(CI green; flash pending)|SNMPD=n OOKLA=n TOR=n|net-snmp ookla tor removed
+P4.B4|S|10|P4.B1|BUILT(CI green; flash pending)|CAPTIVE_PORTAL=n CP_FREEWIFI=n WTFAST_V2=n (shm ABI: networkmap must not run => B1 first; WTFAST_V2 no-op)|coovachilli lighttpd samba-3.5.8 removed
+P4.B5|S|10|-|BUILT(CI green; flash pending)|+fix httpd/web.c ej_httpd_cert_info brace unbalanced without LETSENCRYPT (09ad30d); LETSENCRYPT=n UPNPIGD2=n EMAIL=n|acme.sh socat miniupnpd-igdv2 removed (email stays: NC needs it)
+P4.B6|S|10|-|BUILT(CI green; flash pending)|ACCEL_PPTPD=n only. MULTICASTIPTV KEPT (init-broadcom.c:11833 WAN_UNIT_IPTV unguarded); WIREGUARD KEPT (openvpn_control.h uses wg_type_t, defined only under WIREGUARD)|accel-pptpd removed
+P4.B7|S|10|-|BUILT(CI green; flash pending)|NATNL_AICLOUD=n ALEXA=n INTERNETCTRL=n together (keep GOOGLE_ASST=y NATNL_AIHOME=y; TUNNEL stays)|CI green
+P4.B8|S|10|-|DROPPED|OPENVPN=n VPNC=n: rc/sdn.c (GNP) calls amvpn_set_killswitch_rules(VPNDIR_PROTO_OPENVPN) unguarded (sdn.c:1124) and vpnc_* from vpnc_fusion.o (needs VPNC) under VPN_FUSION (run 40902798521). Not worth patching GNP code for size; OpenVPN never runs in AP|-
 P4.9|O|15|P4.B1-8|TODO|review combined compare report; any removal not predicted => investigate before flash|notes
 P4.10|U|20/batch|P3.4,P4.9|TODO|flash in order B1..B8, ap-diff+TESTPLAN each|§5 PASS per batch
 ### P5 compile-out tier2: source patch required first (1 concern per commit; CI validates)
-P5.B9|S|15|P4|TODO|UUPLUGIN=n + shared/Makefile:572 link uu_utils.o unconditionally (private.o, priv_webapi.o U uu_model_check)|CI green
-P5.B10|S|15|P4|TODO|MEDIASRV=n + rc/usb.c #else stub find_dms_dbdir_candidate (broadcom.o U)|CI green; minidlna mt-daapd ffmpeg removed
-P5.B11|S|20|P4|TODO|IPSEC=n INSTANT_GUARD=n + httpd/web.c get_ipsec_remote_id gen_pre_shared_key unconditional (web_hook.o U)|CI green; strongswan removed
-P5.B12|S|20|P4.B1,infosvr-gate|TODO|ASD=n + stub start_asd (private.o U); networkmap gated off or LIBASC kept (networkmap NEEDED libasc.so)|CI green; asd libasd removed
-P5.B13|S|20|P4.B7|TODO|NATNL_AIHOME=n GOOGLE_ASST=n + aae_ipc.o unconditional (shared/Makefile:525) + wb/libws.so out of TUNNEL guard (nt_center NEEDED libws.so) + add_ifttt_flag unconditional (httpd.c:262)|CI green; aaews mastiff asusnatnl removed
-P5.B14|O|20|P5.B10,P4.B1|TODO|BWDPI=n + stubs check_bwdpi_nvram_setting check_tdts_module_exist get_fw_mesh_extender get_fw_user_list mesh_set_extender check_wrs_switch; networkmap gated off; then MDNS=n TIMEMACHINE=n (MEDIASRV already n) drops avahi w/o mDNSResponder|CI green; bwdpi ~6.9MB, avahi removed
-P5.GATE|S|20|-|TODO|NO_INFOSVR NO_NETWORKMAP package gating (patch ready p5-gate, obj-n keeps clean) + f_exists early-return in start_infosvr start_networkmap (p5-gate-rcguard; stops watchdog fork loop). keep networkmap/ dir; GUI find-ASUS (asusdiscovery) breaks|CI green; binaries absent
+P5.B9|S|15|P4|BUILT(CI green; flash pending)|UUPLUGIN=n + shared/Makefile:572 link uu_utils.o unconditionally (private.o, priv_webapi.o U uu_model_check)|CI green
+P5.B10|S|15|P4|BUILT(CI green; flash pending)|MEDIASRV=n + rc/usb.c #else stub find_dms_dbdir_candidate (broadcom.o U)|CI green; minidlna mt-daapd ffmpeg removed
+P5.B11|S|20|P4|BUILT(CI green; flash pending)|+prn_cert_info moved out of web.c IPSEC block (httpd.c start_ssl calls it unconditionally; run 40907561586); IPSEC=n INSTANT_GUARD=n + httpd/web.c get_ipsec_remote_id gen_pre_shared_key unconditional (web_hook.o U)|CI green; strongswan removed
+P5.B12|S|20|P4.B1,infosvr-gate|BUILT(CI green; flash pending)|+libasc built when TPVPN (rc links -lasc) (d91dc5c); ASD=n + stub start_asd (private.o U); networkmap gated off or LIBASC kept (networkmap NEEDED libasc.so)|CI green; asd libasd removed
+P5.B13|S|20|P4.B7|BUILT(CI green; flash pending)|NATNL_AIHOME=n GOOGLE_ASST=n + aae_ipc.o unconditional (shared/Makefile:525) + wb/libws.so out of TUNNEL guard (nt_center NEEDED libws.so) + add_ifttt_flag unconditional (httpd.c:262)|CI green; aaews mastiff asusnatnl removed
+P5.B14|O|20|P5.B10,P4.B1|BUILT(CI green; flash pending)|BWDPI=n + stubs check_bwdpi_nvram_setting check_tdts_module_exist get_fw_mesh_extender get_fw_user_list mesh_set_extender check_wrs_switch; networkmap gated off; then MDNS=n TIMEMACHINE=n (MEDIASRV already n) drops avahi w/o mDNSResponder|CI green; bwdpi ~6.9MB, avahi removed
+P5.GATE|S|20|-|BUILT(CI green; flash pending)|NO_INFOSVR NO_NETWORKMAP package gating (patch ready p5-gate, obj-n keeps clean) + f_exists early-return in start_infosvr start_networkmap (p5-gate-rcguard; stops watchdog fork loop). keep networkmap/ dir; GUI find-ASUS (asusdiscovery) breaks|CI green; binaries absent
 P5.CFG|S|15|P3 cfgsync PASS|TODO|cfg_mnt/Makefile NO_CFGSERVER=y: skip cfg_server cfg_client cfg_reportstatus gencfgcert.sh, keep libcfgmnt.so (GNP needs it; patch ready p5-cfg). MUST add f_exists("/usr/sbin/cfg_server") early-return in start_cfgsync AND cfgsync_check (else watchdog notify_rc_and_wait_2min loop + cfg_master nvram_commit on AP)|CI green; GNP OK on device
 P5.AMAS|O|-|-|CANCELLED|AMAS=n breaks GNP build (§8.1): prebuilt amas_apg.o/web_hook.o need CFGSYNC/LIBASUSLOG/ACCOUNT_BINDING symbols, MULTILAN code calls AMAS-only fns. CONNDIAG DBLOG CFGSYNC NOTIFICATION_CENTER stay compiled; runtime knobs only|-
 ### P6 hardening + release
@@ -99,7 +101,14 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|PR1+PR2 merged|plans consolidated into v2|3e53067
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
-2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared, pending CI|next PRs
+2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|PR4 compare|critical paths 26/26 present; new dangling DT_NEEDED 0 (official baseline 1: lld2d|libbcm_crc.so); removals = strongswan bwdpi netatalk minidlna nfs chilli/lighttpd aaews/mastiff infosvr networkmap asd ookla tor pptpd; /usr/lib/libws.so gone but /lib/libws.so kept (official ships both)|run 40920909282
+2026-10-29|PR4 head build P4+P5|PASS 41min; image 52,148,504 B vs 70,438,868 B (-18.3 MB, -26%)|run 40910854359
+2026-10-29|P0.5 compare|PASS: only sbin/rc beyond noise|run 40906828698
+2026-10-29|head build|FAIL httpd link prn_cert_info (IPSEC=n); moved out of IPSEC block|run 40907561586
+2026-10-29|source scan|3 certain breaks fixed pre-build: WIREGUARD kept, web.c brace, libasc for TPVPN|6ffc07b 09ad30d d91dc5c
+2026-10-29|head build|FAIL sdn.c VPNDIR_PROTO_OPENVPN (OPENVPN=n); B8 dropped|run 40902798521
+2026-10-29|P4 tip build|FAIL WAN_UNIT_IPTV (MULTICASTIPTV=n); flag kept|run 40898342703, fix ffa4a2e
 
 ## 6.EXECUTION RULES
 E1 one task per agent; brief=task line+file refs+done_when; agent returns diff/output+1-line result; agents never commit, push or edit PLAN.md.
@@ -111,3 +120,5 @@ E6 commit msg `<area>: <imperative>` + evidence (file:line, removed binaries). n
 E7 >20min => split in this file before continuing.
 E8 docs: facts in docs/gt-ax6000-ap-plan.md, order/status here only; update both in the same PR.
 E9 any PR seen => drive to merged (owner instruction 2026-10-28).
+E10 no merge of a build-affecting PR unless: CI build green on head source, compare-official critical-paths pass, new dangling DT_NEEDED = 0, removed paths match intent.
+E11 before each build that drops flags: #if-aware source scan for flag-only identifiers used unguarded + flag-gated functions called unguarded (C16).

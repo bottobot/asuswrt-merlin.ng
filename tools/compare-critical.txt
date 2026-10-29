@@ -1,0 +1,29 @@
+# compare-official: path regexes (ERE, matched against ./-prefixed rootfs paths).
+# A pattern that matches anything in the official image must also match in the build, else the job fails.
+# Scope: what an AP needs: radios, Guest Network Pro (VLAN/SDN), web UI, ssh, DNS/DHCP, core libs.
+/sbin/rc$
+/usr/sbin/httpd$
+/usr/sbin/dropbear$
+/usr/sbin/dnsmasq$
+/usr/sbin/wl$
+/dhd\.ko$
+/wl\.ko$
+/usr/sbin/hostapd$
+/usr/sbin/wlceventd$
+/wlcsm\.ko$
+/usr/sbin/acsd2?$
+/usr/sbin/bsd$
+/libnvram\.so
+/usr/lib/libshared\.so
+/usr/lib/libcfgmnt\.so
+/libwlcsm\.so
+/usr/sbin/ipset$
+/usr/sbin/ebtables
+/usr/sbin/iptables
+/usr/sbin/ntpd$
+/www/index\.asp$
+/www/state\.js$
+/rom/etc/ssl/certs/ca-certificates\.crt$
+/sbin/apg_get_status$
+/www/SDN/sdn\.js$
+/libamas-utils\.so

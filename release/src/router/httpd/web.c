@@ -17491,7 +17491,7 @@ do_uploadIconFile_file(char *url, FILE *stream)
 	unlink("/tmp/IconFile.tar");
 }
 
-#if defined(RTCONFIG_IPSEC) || defined(RTCONFIG_IG_SITE2SITE)
+/* Referenced by prebuilt web_hook.o even when IPSEC/IG_SITE2SITE are off */
 void get_ipsec_remote_id(char *remote_id, int remote_id_len)
 {
 	char prefix[16] = {0}, ddns_name[128] = {0};
@@ -17508,7 +17508,17 @@ void get_ipsec_remote_id(char *remote_id, int remote_id_len)
 		snprintf(remote_id, remote_id_len, "@%s", ddns_name);
 	}
 }
-#endif
+
+/* Referenced by prebuilt web_hook.o even when IPSEC/INSTANT_GUARD are off */
+void
+gen_pre_shared_key(char *key)
+{
+	char radom_string[24] = {0};
+	f_read("/dev/urandom", radom_string, sizeof(radom_string));
+	base64_encode((unsigned char *)radom_string, key, sizeof(radom_string));
+	replace_char(key, '/', 'A');
+	replace_char(key, '+', 'B');
+}
 
 #ifdef RTCONFIG_IPSEC
 static void
@@ -18182,6 +18192,7 @@ do_ipsec_cert_info_cgi(char *url, FILE *stream)
 		X509_free(x509data);
 }
 
+#endif	/* RTCONFIG_IPSEC: prn_cert_info is used by httpd.c start_ssl unconditionally */
 int prn_cert_info(const char *fn)
 {
 	FILE *fp;
@@ -18222,6 +18233,7 @@ int prn_cert_info(const char *fn)
 
 	return 0;
 }
+#ifdef RTCONFIG_IPSEC
 
 static void
 do_get_ipsec_profile_cgi(char *url, FILE *stream)
@@ -18675,16 +18687,6 @@ do_server_ipsec_file(char *url, FILE *stream)
 }
 
 #ifdef RTCONFIG_INSTANT_GUARD
-void
-gen_pre_shared_key(char *key)
-{
-	char radom_string[24] = {0};
-	f_read("/dev/urandom", radom_string, sizeof(radom_string));
-	base64_encode((unsigned char *)radom_string, key, sizeof(radom_string));
-	replace_char(key, '/', 'A');
-	replace_char(key, '+', 'B');
-}
-
 static void set_default_ipsec_config(char *key, char *remote_id)
 {
 	char ipsec_profile_1[1024] = {0}, ipsec_profile_2[1024] = {0};
@@ -37979,7 +37981,9 @@ ej_httpd_cert_info(int eid, webs_t wp, int argc, char **argv)
 #endif
 		CA_cert_path = HTTPD_ROOTCA_GEN_CERT;
 		snprintf(cert_path, sizeof(cert_path), "%s", HTTPD_GEN_CERT);
+#if defined(RTCONFIG_LETSENCRYPT)
 	}
+#endif
 
 	fp = fopen(cert_path, "r");
 	if (fp == NULL){

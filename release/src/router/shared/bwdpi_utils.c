@@ -221,6 +221,22 @@ void tm_recycle_stuck_process()
 		}
 	}
 }
+#else /* !RTCONFIG_BWDPI */
+/*
+	BWDPI=n stubs. Prebuilt objects that stay linked without the DPI engine
+	(rc/prebuild/<model>/nt_mail.o, amas_lib.o, networkmap) still reference
+	these two symbols. Not declared in shared.h on purpose.
+	return 0 : no WRS function / DPI engine disabled
+*/
+int check_wrs_switch(void)
+{
+	return 0;
+}
+
+int check_bwdpi_nvram_setting(void)
+{
+	return 0;
+}
 #endif
 
 /*

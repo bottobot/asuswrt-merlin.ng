@@ -837,9 +837,9 @@ obj-y += nvram$(BCMEX)$(EX7)
 
 obj-$(RTCONFIG_LIBASUSLOG) += libasuslog
 obj-$(RTCONFIG_SW_HW_AUTH) += sw-hw-auth
-ifeq ($(RTCONFIG_TUNNEL),y)
+# libws.so (wb) is DT_NEEDED by the prebuilt nt_center/nt_monitor/Notify_Event2NC,
+# so it is installed with NOTIFICATION_CENTER even without TUNNEL.
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += wb
-endif
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += json-c
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += sqlite
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += nt_center
@@ -1138,6 +1138,10 @@ obj-$(RTCONFIG_LETSENCRYPT) += socat
 obj-y += sysstate
 
 obj-$(RTCONFIG_LIBASC) += libasc
+# rc links -lasc for TPVPN (rc/Makefile:618) even when ASD/AHS are off
+ifneq ($(RTCONFIG_LIBASC),y)
+obj-$(RTCONFIG_TPVPN) += libasc
+endif
 
 obj-$(RTCONFIG_AHS) += openssl
 obj-$(RTCONFIG_AHS) += curl
@@ -1728,12 +1732,20 @@ endif
 ifeq ($(RTCONFIG_HAPDEVENT),y)
 obj-$(RTCONFIG_HAPDEVENT) += hapdevent
 endif
+ifneq ($(NO_NETWORKMAP),y)
 obj-y += networkmap
+else
+obj-n += networkmap
+endif
 ifeq ($(BUILD_NAME), $(filter $(BUILD_NAME), EBG19))
 obj-y += rtkswitch
 endif
 ifneq ($(BUILD_NAME), $(filter $(BUILD_NAME), AC2900))
+ifneq ($(NO_INFOSVR),y)
 obj-y += infosvr
+else
+obj-n += infosvr
+endif
 endif
 obj-$(if $(filter y,$(RTCONFIG_INADYN)),,y) += ez-ipupdate
 obj-$(RTCONFIG_INADYN) += libconfuse inadyn

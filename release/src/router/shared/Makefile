@@ -522,10 +522,13 @@ CFLAGS  += -I$(TOP)/sw-hw-auth
 vpath %.c $(TOP)/sw-hw-auth
 endif
 
-ifeq ($(RTCONFIG_TUNNEL),y)
+# aae_ipc.o (libc-only IPC helper) is referenced by always-linked prebuilt
+# objects (httpd web_hook.o, libwebapi priv_webapi.o) and by nt_center, so it
+# must be part of libshared even when RTCONFIG_TUNNEL is not set.
 OBJS += aae_ipc.o
-CFLAGS  += -I$(TOP)/aaews
 vpath %.c $(TOP)/aaews
+ifeq ($(RTCONFIG_TUNNEL),y)
+CFLAGS  += -I$(TOP)/aaews
 endif
 
 ifeq ($(RTCONFIG_GEFORCENOW), y)
@@ -570,6 +573,10 @@ LDFLAGS += -L$(TOP)/ateed/ -latee
 endif
 
 ifeq ($(or $(RTCONFIG_GEARUPPLUGIN), $(RTCONFIG_UUPLUGIN)), y)
+OBJS += $(if $(wildcard uu_utils.c),uu_utils.o,prebuild/uu_utils.o)
+else ifneq ($(wildcard prebuild/$(BUILD_NAME)/uu_utils.o),)
+# Closed-source rc/private.o and libwebapi/priv_webapi.o import uu_model_check()
+# regardless of UUPLUGIN, so keep uu_utils.o linked whenever the model ships one.
 OBJS += $(if $(wildcard uu_utils.c),uu_utils.o,prebuild/uu_utils.o)
 endif
 
