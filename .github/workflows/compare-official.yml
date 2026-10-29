@@ -152,6 +152,23 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
           head -n 12 compare-report.txt
+          echo "######## content differs, NOT in noise list (all)"; cat "$S/content_new"
+          echo "######## only in A, NOT in noise list, outside ./www/ ($(grep -vc '^\./www/' "$S/only_a_new" || true) of $(n $S/only_a_new))"
+          grep -v '^\./www/' "$S/only_a_new" || true
+      - name: Critical paths present
+        run: |
+          # every pattern that matches the official image must still match the build
+          grep -v -e '^#' -e '^[[:space:]]*$' tools/compare-critical.txt > work/critical.re
+          cut -f1 work/official/manifest.tsv > work/a.paths
+          cut -f1 work/build/manifest.tsv > work/b.paths
+          fail=0
+          while IFS= read -r re; do
+            a=$(grep -cE -- "$re" work/a.paths || true); b=$(grep -cE -- "$re" work/b.paths || true)
+            if [ "$a" -gt 0 ] && [ "$b" -eq 0 ]; then echo "MISSING in build: $re (official has $a)"; fail=1
+            else echo "ok: $re (official $a, build $b)"; fi
+          done < work/critical.re
+          { echo; echo "### Critical paths"; if [ $fail -eq 0 ]; then echo "all present"; else echo "**missing paths, see log**"; fi; } >> "$GITHUB_STEP_SUMMARY"
+          exit $fail
       - uses: actions/upload-artifact@v4
         with:
           name: compare-${{ env.RUN_ID }}
