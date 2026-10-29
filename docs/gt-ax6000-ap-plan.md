@@ -141,3 +141,42 @@ P4 image diff per commit: tools/pkgtb-compare.sh prev vs new -> every removed bi
 - BWDPI=n with AMAS=y: LINK RISK. prebuilt amas_lib.o (AMAS-linked) has U check_tdts_module_exist get_fw_mesh_extender get_fw_user_list mesh_set_extender, defined only in libbwdpi.so (-lbwdpi only under BWDPI, rc/Makefile:233). needs build test; fallback = stub symbols
 - MDNS=n alone NO-OP: TIMEMACHINE=y forces RTCONFIG_MDNS (SRT/Makefile:1877). avahi dropped only if TIMEMACHINE=n MDNS=n; mDNSResponder built instead if MEDIASRV or BWDPI y (R/Makefile:1598-1608). full set: TIMEMACHINE=n MDNS=n MEDIASRV=n BWDPI=n
 - runtime alternative: disable_mdns=1 (this fork)
+### 8.5 flag map (static: Makefiles + nm -u/readelf on prebuild/GT-AX6000; SR=src-rt/Makefile RT=router/Makefile)
+cols: flag|forces|forced_by|pkgs_removed|link_risk(prebuilt U sym -> fix)|batch
+ASD|LIBASC|-|asd libasd libasc|HIGH private.o U start_asd -> stub; networkmap NEEDED libasc.so|P5.B12
+CONNDIAG|NEW_PHYMAP LIB_CODB DNS_PING|AMAS(SR:4170)|-|cannot be n while AMAS=y|never
+DBLOG|-|AMAS(SR:3931)|- (dblog needs FRS_FEEDBACK)|forced|never
+NATNL_AICLOUD|TUNNEL(cleared by AIHOME else-branch SR:3460)|-|-|low|P4.B7
+NATNL_AIHOME|TUNNEL AIHOME_TUNNEL|ALEXA(SR:3522)|aaews mastiff asusnatnl wb|TUNNEL off: web_hook.o U aae_sendIpcMsgAndWaitResp, priv_webapi.o U aae_sendIpcMsg -> link aae_ipc.o always; nt_center NEEDED libws.so -> wb out of TUNNEL|P5.B13
+ALEXA|TUNNEL AIHOME_TUNNEL INTERNETCTRL|-|-|with GOOGLE_ASST=n: web_hook.o U add_ifttt_flag (httpd.c:262)|P4.B7 (keep GOOGLE_ASST)
+GOOGLE_ASST|-|-|-|anchor for add_ifttt_flag|P5.B13
+NETOOL|-|ROG_UI GS_UI|-|low (not batched; netool.o only)|optional
+SNMPD|-|-|net-snmp|low|P4.B3
+PRINTER|USB_PRINTER|-|u2ec LPRng|low (XT12 exemplar)|P4.B2
+UUPLUGIN|-|-|-|HIGH private.o priv_webapi.o U uu_model_check -> link uu_utils.o always (shared/Makefile:572)|P5.B9
+WTFAST_V2|-|-|-|none (no consumer)|P4.B4
+CAPTIVE_PORTAL|COOVACHILLI|-|coovachilli lighttpd-1.4.39 samba-3.5.8 pcre libexif|build low; RUNTIME shm ABI networkmap.h:284 -> networkmap must not run|P4.B4 after B1
+CP_FREEWIFI|-|-|-|low|P4.B4
+INSTANT_GUARD|-|IG_SITE2SITE|-|HIGH web_hook.o U gen_pre_shared_key (web.c:18679 IPSEC&&IG) -> unconditional|P5.B11
+INTERNETCTRL|-|ALEXA|ic.o|low; move with ALEXA|P4.B7
+GAME_MODE ADGUARDDNS|-|-|-|none|P4.B1
+TOR|-|-|tor|low|P4.B3
+OPENVPN|LZO|-|libovpn openvpn easy-rsa lz4 libcap-ng openpam|MED vpnc_fusion.c calls ovpn fns unguarded -> VPNC=n too|P4.B8
+WIREGUARD|-|-|wireguard-tools qrencode|ok only while VPN_FUSION=y (vpn_utils.o, priv_webapi.o U _get_new_vpnc_index)|P4.B6
+IPSEC|STRONGSWAN|-|strongswan|HIGH web_hook.o U get_ipsec_remote_id gen_pre_shared_key -> unconditional|P5.B11
+VPNC|-|-|vpnc_fusion.o|med (untested combo with VPN_FUSION=y)|P4.B8
+VPN_FUSION VPN_FUSION_MERLIN|-|-|-|med; keep y (WIREGUARD/vpn_utils coupling)|keep
+ACCEL_PPTPD|-|-|accel-pptpd|low-med|P4.B6
+MEDIASRV|MEDIA_SERVER|-|minidlna mt-daapd ffmpeg flac libvorbis...|HIGH broadcom.o U find_dms_dbdir_candidate (usb.c:3683) -> #else stub|P5.B10
+TIMEMACHINE|MDNS|-|netatalk db libgcrypt|low (XT12)|P4.B2
+NFS|-|-|nfs-utils portmap|low (XT12)|P4.B2
+OOKLA|-|-|ookla 2.2MB|low; base var, later =n overrides|P4.B3
+EMAIL|-|-|- (email-3.1.3 kept by NOTIFICATION_CENTER)|low|P4.B5
+LETSENCRYPT|-|-|acme.sh libletsencrypt socat|low|P4.B5
+MULTICASTIPTV|-|-|-|low (enum constants fixed)|P4.B6
+UPNPIGD2|-|-|miniupnpd-igdv2|low|P4.B5
+BWDPI|NOTIFICATION_CENTER|-|bwdpi_source ~6.9MB tdts*.ko wred dcd|HIGH amas_lib.o U check_bwdpi_nvram_setting check_tdts_module_exist get_fw_mesh_extender get_fw_user_list mesh_set_extender; nt_mail.o U check_wrs_switch -> 6 stubs; networkmap NEEDED libbwdpi + shm ABI|P5.B14
+DISABLE_NETWORKMAP=y|-|-|-|none; default networkmap_enable=0, rc_support disable_nwmd|P4.B1
+MDNS|-|TIMEMACHINE FINDASUS|avahi only if TIMEMACHINE MDNS =n; mDNSResponder built if MEDIASRV or BWDPI|-|P5.B14
+infosvr networkmap pkg gating: obj-y RT:1736 RT:1731; no build deps; keep networkmap/ dir (headers: rc httpd miniupnpc cfg_mnt)|P5.GATE
+prebuilt networkmap NEEDED: libasc libbwdpi libnt libcodb libconn_diag libamas-utils liblldpctl libcurl libsqlite3 => drop networkmap before ASD/BWDPI

@@ -18,6 +18,8 @@ C10|both GAP|no success metric. Define: listeners (netstat -lntu on LAN), reside
 C11|PR2 plan GAP|single master knob `ap_strip=1` proposed; per-daemon knobs better for bisect. Keep per-daemon; ap-harden.sh sets the set.
 C12|both GAP|management-plane hardening (ssh key-only, https-only, access restriction) not tasked. Add P6.
 C13|both GAP|no rule for docs drift (two plans diverged in one day). Rule E8.
+C14|v2 draft gate too strict|P4 build-only validation does not need hardware; only flashing does. Gate relaxed for CI, kept for flash.
+C15|both plans WRONG|AMAS=n listed as final step (v1 P5.6, PR2 P3): research shows it breaks GNP build; cancelled. 7 flags (ASD MEDIASRV UUPLUGIN BWDPI IPSEC INSTANT_GUARD ALEXA+GOOGLE_ASST) break rc/httpd link via prebuilt .o refs; CONNDIAG DBLOG silently forced by AMAS; NATNL_AIHOME forced by ALEXA. v1 P4.3/P4.4 (DBLOG=n CONNDIAG=n) were no-ops.
 DONE_since_v1: CI green+artifact verify (4c2f436, PR2 root fix 98fd4e0); baseline vs official (985f9b0) => only real diff MERLINUPDATE, fixed (55c9f3a), re-baselined (1011371): reproduces official up to build noise; tools/pkgtb-{unpack,compare}.sh (PR2); disable_infosvr guard (3151f6c, CI green run 40700438258).
 
 ## 2.PHASES + GATES
@@ -57,12 +59,29 @@ P3.1|U|10|P1.5,P2.7|TODO|flash P2 build, knobs unset; ap-diff vs ci-unmod|empty
 P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr asd nt_center wlc_nt mastiff(aae) lldpd(stop_amas_lldpd) mdns networkmap conndiag wanduck amas_lib obd amas_ctl cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
 P3.3|U|5|P3.2|TODO|all PASS knobs on together; 24h soak; full TESTPLAN|§5 PASS
 P3.4|O|10|P3.3|TODO|classify each daemon: OFF-SAFE (=>P4 candidate) | KEEP(reason)|table in §5
-### P4 compile-out tier1 (flags from research; max 3 flags/build; 1 commit/flag; never ahead of P3.4 OFF-SAFE)
-P4.0|S|20|-|WIP|flag dependency+link-risk map (forces/forced_by/prebuilt/.o refs) => batch order below|table in docs/gt-ax6000-ap-plan.md §8
-P4.x|S|20/batch|P3.4|TODO|<filled from P4.0>|CI green, compare shows only expected removals, TESTPLAN pass
-### P5 compile-out tier2 (one subsystem per build)
-P5.x|S|20|P4|TODO|<filled from P4.0>|same
-P5.AMAS|O|20|P5.*|TODO|AMAS=n experiment gate; precondition research verdict on GNP dependency|decision in §5
+### P4 compile-out tier1: flag-only, no prebuilt link refs (source: docs/gt-ax6000-ap-plan.md §8.5)
+gate change (C14): CI build+compare may run ahead of P3 for flags unrelated to P3 knobs; FLASH still waits for P1+P3. 1 commit per batch (flags listed in msg); CI may validate several batches in one build; device flashes <=1 batch at a time.
+mechanism: append `FLAG=n` at END of `export GT-AX6000 +=` (last export wins, SR:7025) incl. base-var flags (OOKLA CONNDIAG from HND-94912_BASE)
+P4.B1|S|10|-|TODO|DISABLE_NETWORKMAP=y GAME_MODE=n ADGUARDDNS=n (DISABLE_NETWORKMAP: default networkmap_enable=0, ABI precondition for B4/P5.B14)|CI green; compare: no binary removed, rc/httpd changed
+P4.B2|S|10|-|TODO|PRINTER=n TIMEMACHINE=n NFS=n (XT12 same-SDK exemplar)|compare: u2ec LPRng netatalk nfs-utils portmap removed
+P4.B3|S|10|-|TODO|SNMPD=n OOKLA=n TOR=n|net-snmp ookla tor removed
+P4.B4|S|10|P4.B1|TODO|CAPTIVE_PORTAL=n CP_FREEWIFI=n WTFAST_V2=n (shm ABI: networkmap must not run => B1 first; WTFAST_V2 no-op)|coovachilli lighttpd samba-3.5.8 removed
+P4.B5|S|10|-|TODO|LETSENCRYPT=n UPNPIGD2=n EMAIL=n|acme.sh socat miniupnpd-igdv2 removed (email stays: NC needs it)
+P4.B6|S|10|-|TODO|MULTICASTIPTV=n ACCEL_PPTPD=n WIREGUARD=n (WIREGUARD=n valid only while VPN_FUSION=y)|accel-pptpd wireguard-tools removed
+P4.B7|S|10|-|TODO|NATNL_AICLOUD=n ALEXA=n INTERNETCTRL=n together (keep GOOGLE_ASST=y NATNL_AIHOME=y; TUNNEL stays)|CI green
+P4.B8|S|10|-|TODO|OPENVPN=n VPNC=n together (vpnc_fusion.c calls ovpn fns unguarded; VPN_FUSION stays)|openvpn libovpn easy-rsa removed
+P4.9|O|15|P4.B1-8|TODO|review combined compare report; any removal not predicted => investigate before flash|notes
+P4.10|U|20/batch|P3.4,P4.9|TODO|flash in order B1..B8, ap-diff+TESTPLAN each|§5 PASS per batch
+### P5 compile-out tier2: source patch required first (1 concern per commit; CI validates)
+P5.B9|S|15|P4|TODO|UUPLUGIN=n + shared/Makefile:572 link uu_utils.o unconditionally (private.o, priv_webapi.o U uu_model_check)|CI green
+P5.B10|S|15|P4|TODO|MEDIASRV=n + rc/usb.c #else stub find_dms_dbdir_candidate (broadcom.o U)|CI green; minidlna mt-daapd ffmpeg removed
+P5.B11|S|20|P4|TODO|IPSEC=n INSTANT_GUARD=n + httpd/web.c get_ipsec_remote_id gen_pre_shared_key unconditional (web_hook.o U)|CI green; strongswan removed
+P5.B12|S|20|P4.B1,infosvr-gate|TODO|ASD=n + stub start_asd (private.o U); networkmap gated off or LIBASC kept (networkmap NEEDED libasc.so)|CI green; asd libasd removed
+P5.B13|S|20|P4.B7|TODO|NATNL_AIHOME=n GOOGLE_ASST=n + aae_ipc.o unconditional (shared/Makefile:525) + wb/libws.so out of TUNNEL guard (nt_center NEEDED libws.so) + add_ifttt_flag unconditional (httpd.c:262)|CI green; aaews mastiff asusnatnl removed
+P5.B14|O|20|P5.B10,P4.B1|TODO|BWDPI=n + stubs check_bwdpi_nvram_setting check_tdts_module_exist get_fw_mesh_extender get_fw_user_list mesh_set_extender check_wrs_switch; networkmap gated off; then MDNS=n TIMEMACHINE=n (MEDIASRV already n) drops avahi w/o mDNSResponder|CI green; bwdpi ~6.9MB, avahi removed
+P5.GATE|S|20|-|TODO|infosvr + networkmap package gating: RT:1736 `ifneq ($(NO_INFOSVR),y)`, RT:1731 same NO_NETWORKMAP; keep networkmap/ dir (headers); keep rc guards|CI green; binaries absent
+P5.CFG|S|15|P3 cfgsync PASS|TODO|cfg_mnt/Makefile install: skip cfg_server cfg_client cfg_reportstatus, keep libcfgmnt.so (GNP needs it); pair disable_cfgsync=1|CI green; GNP OK on device
+P5.AMAS|O|-|-|CANCELLED|AMAS=n breaks GNP build (§8.1): prebuilt amas_apg.o/web_hook.o need CFGSYNC/LIBASUSLOG/ACCOUNT_BINDING symbols, MULTILAN code calls AMAS-only fns. CONNDIAG DBLOG CFGSYNC NOTIFICATION_CENTER stay compiled; runtime knobs only|-
 ### P6 hardening + release
 P6.1|U|10|P3.3|TODO|sshd key-only LAN-only, https-only (http_enable=1? verify value), disable http on WAN n/a, enable_acc_restriction w/ mgmt subnet|ap-baseline listen.txt: 22,443 only (+53/67 if dnsmasq KEEP)
 P6.2|S|15|P4|TODO|CI on tag v3006.102.9-apN: build+compare, GitHub pre-release "not for use", attach pkgtb+sha256+report|tag release works
@@ -83,7 +102,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 E1 one task per agent; brief=task line+file refs+done_when; agent returns diff/output+1-line result; agents never commit, push or edit PLAN.md.
 E2 guards: `if (nvram_match("disable_<x>","1")) { stop_<x>(); return 0; }` inside start_<x>, and early return in matching watchdog *_check. Reuse an existing knob only if it covers all start paths AND watchdog.
 E3 parallel agents editing the same C file write patches to scratchpad; orchestrator applies (git apply --check first).
-E4 max 3 flags/build (P4); P5 one subsystem/build; AMAS alone.
+E4 P4: 1 commit/batch, CI may combine batches, flash <=1 batch; P5: 1 concern/commit, stub/patch in same commit as flag; AMAS never.
 E5 every flash: CI green + compare report reviewed + official image on laptop. after: ap-diff + TESTPLAN same session.
 E6 commit msg `<area>: <imperative>` + evidence (file:line, removed binaries). no model ids.
 E7 >20min => split in this file before continuing.
