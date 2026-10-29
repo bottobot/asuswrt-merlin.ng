@@ -76,7 +76,7 @@ P4.10|U|20/batch|P3.4,P4.9|TODO|flash in order B1..B8, ap-diff+TESTPLAN each|§5
 ### P5 compile-out tier2: source patch required first (1 concern per commit; CI validates)
 P5.B9|S|15|P4|TODO|UUPLUGIN=n + shared/Makefile:572 link uu_utils.o unconditionally (private.o, priv_webapi.o U uu_model_check)|CI green
 P5.B10|S|15|P4|TODO|MEDIASRV=n + rc/usb.c #else stub find_dms_dbdir_candidate (broadcom.o U)|CI green; minidlna mt-daapd ffmpeg removed
-P5.B11|S|20|P4|TODO|IPSEC=n INSTANT_GUARD=n + httpd/web.c get_ipsec_remote_id gen_pre_shared_key unconditional (web_hook.o U)|CI green; strongswan removed
+P5.B11|S|20|P4|TODO|+prn_cert_info moved out of web.c IPSEC block (httpd.c start_ssl calls it unconditionally; run 40907561586); IPSEC=n INSTANT_GUARD=n + httpd/web.c get_ipsec_remote_id gen_pre_shared_key unconditional (web_hook.o U)|CI green; strongswan removed
 P5.B12|S|20|P4.B1,infosvr-gate|TODO|+libasc built when TPVPN (rc links -lasc) (d91dc5c); ASD=n + stub start_asd (private.o U); networkmap gated off or LIBASC kept (networkmap NEEDED libasc.so)|CI green; asd libasd removed
 P5.B13|S|20|P4.B7|TODO|NATNL_AIHOME=n GOOGLE_ASST=n + aae_ipc.o unconditional (shared/Makefile:525) + wb/libws.so out of TUNNEL guard (nt_center NEEDED libws.so) + add_ifttt_flag unconditional (httpd.c:262)|CI green; aaews mastiff asusnatnl removed
 P5.B14|O|20|P5.B10,P4.B1|TODO|BWDPI=n + stubs check_bwdpi_nvram_setting check_tdts_module_exist get_fw_mesh_extender get_fw_user_list mesh_set_extender check_wrs_switch; networkmap gated off; then MDNS=n TIMEMACHINE=n (MEDIASRV already n) drops avahi w/o mDNSResponder|CI green; bwdpi ~6.9MB, avahi removed
@@ -101,6 +101,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
 2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|head build|FAIL httpd link prn_cert_info (IPSEC=n); moved out of IPSEC block|run 40907561586
 2026-10-29|source scan|3 certain breaks fixed pre-build: WIREGUARD kept, web.c brace, libasc for TPVPN|6ffc07b 09ad30d d91dc5c
 2026-10-29|head build|FAIL sdn.c VPNDIR_PROTO_OPENVPN (OPENVPN=n); B8 dropped|run 40902798521
 2026-10-29|P4 tip build|FAIL WAN_UNIT_IPTV (MULTICASTIPTV=n); flag kept|run 40898342703, fix ffa4a2e

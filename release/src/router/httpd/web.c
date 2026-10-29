@@ -18192,6 +18192,7 @@ do_ipsec_cert_info_cgi(char *url, FILE *stream)
 		X509_free(x509data);
 }
 
+#endif	/* RTCONFIG_IPSEC: prn_cert_info is used by httpd.c start_ssl unconditionally */
 int prn_cert_info(const char *fn)
 {
 	FILE *fp;
@@ -18232,6 +18233,7 @@ int prn_cert_info(const char *fn)
 
 	return 0;
 }
+#ifdef RTCONFIG_IPSEC
 
 static void
 do_get_ipsec_profile_cgi(char *url, FILE *stream)
