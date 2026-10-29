@@ -19,6 +19,7 @@ C11|PR2 plan GAP|single master knob `ap_strip=1` proposed; per-daemon knobs bett
 C12|both GAP|management-plane hardening (ssh key-only, https-only, access restriction) not tasked. Add P6.
 C13|both GAP|no rule for docs drift (two plans diverged in one day). Rule E8.
 C14|v2 draft gate too strict|P4 build-only validation does not need hardware; only flashing does. Gate relaxed for CI, kept for flash.
+C16|research GAP|§8.5 scanned prebuilt LINK refs only; compile-time uses of flag-only identifiers in source (e.g. WAN_UNIT_IPTV) were missed. Added source #if-aware scan before each build.
 C15|both plans WRONG|AMAS=n listed as final step (v1 P5.6, PR2 P3): research shows it breaks GNP build; cancelled. 7 flags (ASD MEDIASRV UUPLUGIN BWDPI IPSEC INSTANT_GUARD ALEXA+GOOGLE_ASST) break rc/httpd link via prebuilt .o refs; CONNDIAG DBLOG silently forced by AMAS; NATNL_AIHOME forced by ALEXA. v1 P4.3/P4.4 (DBLOG=n CONNDIAG=n) were no-ops.
 DONE_since_v1: CI green+artifact verify (4c2f436, PR2 root fix 98fd4e0); baseline vs official (985f9b0) => only real diff MERLINUPDATE, fixed (55c9f3a), re-baselined (1011371): reproduces official up to build noise; tools/pkgtb-{unpack,compare}.sh (PR2); disable_infosvr guard (3151f6c, CI green run 40700438258).
 
@@ -67,7 +68,7 @@ P4.B2|S|10|-|TODO|PRINTER=n TIMEMACHINE=n NFS=n (XT12 same-SDK exemplar)|compare
 P4.B3|S|10|-|TODO|SNMPD=n OOKLA=n TOR=n|net-snmp ookla tor removed
 P4.B4|S|10|P4.B1|TODO|CAPTIVE_PORTAL=n CP_FREEWIFI=n WTFAST_V2=n (shm ABI: networkmap must not run => B1 first; WTFAST_V2 no-op)|coovachilli lighttpd samba-3.5.8 removed
 P4.B5|S|10|-|TODO|LETSENCRYPT=n UPNPIGD2=n EMAIL=n|acme.sh socat miniupnpd-igdv2 removed (email stays: NC needs it)
-P4.B6|S|10|-|TODO|MULTICASTIPTV=n ACCEL_PPTPD=n WIREGUARD=n (WIREGUARD=n valid only while VPN_FUSION=y)|accel-pptpd wireguard-tools removed
+P4.B6|S|10|-|TODO|ACCEL_PPTPD=n WIREGUARD=n (WIREGUARD=n valid only while VPN_FUSION=y). MULTICASTIPTV KEPT: init-broadcom.c:11833 uses WAN_UNIT_IPTV unguarded (run 40898342703)|accel-pptpd wireguard-tools removed
 P4.B7|S|10|-|TODO|NATNL_AICLOUD=n ALEXA=n INTERNETCTRL=n together (keep GOOGLE_ASST=y NATNL_AIHOME=y; TUNNEL stays)|CI green
 P4.B8|S|10|-|TODO|OPENVPN=n VPNC=n together (vpnc_fusion.c calls ovpn fns unguarded; VPN_FUSION stays)|openvpn libovpn easy-rsa removed
 P4.9|O|15|P4.B1-8|TODO|review combined compare report; any removal not predicted => investigate before flash|notes
@@ -99,7 +100,8 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|PR1+PR2 merged|plans consolidated into v2|3e53067
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
-2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared, pending CI|next PRs
+2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|P4 tip build|FAIL WAN_UNIT_IPTV (MULTICASTIPTV=n); flag kept|run 40898342703, fix ffa4a2e
 
 ## 6.EXECUTION RULES
 E1 one task per agent; brief=task line+file refs+done_when; agent returns diff/output+1-line result; agents never commit, push or edit PLAN.md.
