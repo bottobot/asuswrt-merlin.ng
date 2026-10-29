@@ -35,13 +35,13 @@ P6 management hardening + release discipline
 ### P0
 P0.1|S|15|-|DONE|upload EACCES fix: root container, docker user for clone+make|run 40698419243 green
 P0.2|O|15|-|DONE|baseline vs official, MERLINUPDATE=y|docs/baseline-*.md verdict
-P0.3|S|15|-|WIP|workflow: concurrency cancel, dispatch input `ref`, retention 30d, step summary sha256, paths-ignore docs/**|yaml+actionlint clean; dispatch run green
-P0.4|S|20|P0.3|WIP|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
+P0.3|S|15|-|DONE|workflow: concurrency cancel, dispatch input `ref`, retention 30d, step summary sha256, paths-ignore docs/**|yaml+actionlint clean; dispatch run green
+P0.4|S|20|P0.3|DONE(untested on GH until merged)|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
 P0.5|H|10|P0.4|TODO|run compare-official on run 40886333807 (PR2 merge build)|0 unexplained diffs recorded in §5
 ### P1 (owner; scripts prepared by agents)
-P1.1|S|15|-|WIP|docs/RECOVERY.md (rescue mode, Firmware Restoration, TFTP, nvram reset, backup)|doc merged
+P1.1|S|15|-|DONE(steps partly UNVERIFIED)|docs/RECOVERY.md (rescue mode, Firmware Restoration, TFTP, nvram reset, backup)|doc merged
 P1.2|U|20|P1.1|TODO|recovery drill on device with OFFICIAL 3006.102.9|§5: PASS + minutes
-P1.3|S|20|-|WIP|tools/ap-baseline.sh ap-diff.sh ap-harden.sh (busybox, secrets redacted) + docs/TESTPLAN.md|sh -n/shellcheck clean
+P1.3|S|20|-|DONE(mock-tested; not on device)|tools/ap-baseline.sh ap-diff.sh ap-harden.sh (busybox, secrets redacted) + docs/TESTPLAN.md|sh -n/shellcheck clean
 P1.4|U|15|P1.3|TODO|official image, AP mode, radios+GNP configured: `ap-baseline.sh official`|baseline/official/* committed
 P1.5|U|15|P1.4,P0.5|TODO|flash CI build of default branch: `ap-baseline.sh ci-unmod`; `ap-diff.sh`|diff empty except buildno/version
 P1.6|S|10|P1.4|TODO|docs/LISTENERS.md from baseline: port|proto|proc|needed_AP|knob|plan_ref|every listener row filled
@@ -50,10 +50,10 @@ P2.1|S|20|-|DONE|guards A: wanduck=existing wanduck_down (watchdog.c honours via
 P2.2|S|20|-|DONE|guards B: NEW disable_cfgsync (start_cfgsync+cfgsync_check) disable_conndiag (+watchdog) disable_obd (start_obd, start_eth_obd, init check_services). amas_lib: native knob disable_amas_lib in prebuilt amas_lib.o (disassembled), no code. GNP/SDN rc source has no cfg_server/amas_lib dependency; httpd falls back to local apply when cfg_server absent (web.c:27113); confirm on device|this PR
 P2.3|S|20|-|DONE|guards C: NEW disable_asd disable_nt_center disable_wlc_nt; mastiff=existing aae_disable_force; dblog+awsiot not built for GT-AX6000 (FRS_FEEDBACK=n, no AWSIOT)|cd97594
 P2.4|S|20|P2.1-3|DONE|guards D: NEW disable_amas_ctl (start_amas_lanctrl+amas_ctl_check, non-RE). uploader (no UPLOADER), asus_rbd (no ROUTERBOOST), auto_firmware_check (#if 0) not built. Merlin fw check: existing firmware_check_enable=0 + disable_asd=1 (watchdog SIGUSR1s asd before the enable check). Manual UI fw_check ignores knob (user-initiated, kept)|this PR
-P2.5|O|15|P2.1-4|TODO|review all guards: #ifdef balance, no default change, stop_ before return, watchdog covered|review notes in PR
-P2.6|S|10|P2.5|TODO|apply patches, one commit per daemon group, dispatch CI on branch|CI green
+P2.5|O|15|P2.1-4|DONE|review all guards: #ifdef balance, no default change, stop_ before return, watchdog covered|review notes in PR
+P2.6|S|10|P2.5|DONE|apply patches, one commit per daemon group, dispatch CI on branch|CI green
 P2.7|H|10|P2.6|TODO|compare-official vs P2 build: only sbin/rc + libshared differ beyond noise|recorded
-P2.8|H|10|P2.6|TODO|ap-harden.sh KNOBS list == knobs actually added (grep `nvram_match("disable_` rc/)|lists equal
+P2.8|H|10|P2.6|DONE|ap-harden.sh KNOBS list == knobs actually added (grep `nvram_match("disable_` rc/)|lists equal
 ### P3 on-device bisect (owner, scripts do the work)
 P3.1|U|10|P1.5,P2.7|TODO|flash P2 build, knobs unset; ap-diff vs ci-unmod|empty
 P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr asd nt_center wlc_nt mastiff(aae) lldpd(stop_amas_lldpd) mdns networkmap conndiag wanduck amas_lib obd amas_ctl cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
@@ -97,6 +97,9 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-28|P0.2|PASS|1011371 (MERLINUPDATE re-baseline)
 2026-10-28|infosvr guard|CI PASS|run 40700438258
 2026-10-29|PR1+PR2 merged|plans consolidated into v2|3e53067
+2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
+2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
+2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared, pending CI|next PRs
 
 ## 6.EXECUTION RULES
 E1 one task per agent; brief=task line+file refs+done_when; agent returns diff/output+1-line result; agents never commit, push or edit PLAN.md.
