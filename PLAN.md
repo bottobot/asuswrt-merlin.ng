@@ -1,133 +1,91 @@
-# PLAN.md — GT-AX6000 AP strip-down: phased goals + granular tasks
+# PLAN.md v2 — GT-AX6000 AP strip-down: execution plan + status
+fmt: machine-readable. task=`ID|tier|min|dep|status|action|done_when`. tier: H=haiku S=sonnet O=opus(review/gate only) U=owner(hardware, cannot delegate). min<=20; overrun => split in place, never continue. status: DONE|WIP|TODO|BLOCKED(reason).
+facts_ref=docs/gt-ax6000-ap-plan.md (investigation: service inventory, flags, CVEs). baseline_ref=docs/baseline-3006.102.9-ci-vs-official.md. this file=single source for WHAT/ORDER/STATUS; v1 superseded.
+base=Merlin 3006.102.9 (3006.102-wifi6 @c73015d). sdk=release/src-rt-5.04axhnd.675x make=gt-ax6000. flags=release/src-rt/target.mak:197-221. flag->RTCONFIG+forced deps=release/src-rt/Makefile. pkg gating=release/src/router/Makefile. rc=release/src/router/rc/{services,watchdog,lan,wan}.c.
+ci=.github/workflows/build-gt-ax6000.yml (root container, clone+make as docker, MERLINUPDATE=y, digest-pinned, 45-63min). cloud sandbox: no build (no toolchain/docker/disk), artifact download blocked (blob 403) => all image work runs in CI.
 
-FORMAT: machine-readable. Each task: `ID|tier|est_min|depends|action|done_when`. tier: H=haiku-class S=sonnet-class O=opus-class(review/decide only). est_min<=20 always. Any task found >20min at execution => split, do not continue.
-BASE: Merlin 3006.102.9, branch `3006.102-wifi6` @ c73015d. SDK `release/src-rt-5.04axhnd.675x`, target `make gt-ax6000`. Service wiring: `release/src/router/rc/services.c`. Build flags: `release/src-rt/target.mak` (`export GT-AX6000`). Package gating: `release/src/router/Makefile` (`obj-$(RTCONFIG_X)`, `obj-y`=unconditional).
-CI: `.github/workflows/build-gt-ax6000.yml`. Full build ~63min on ubuntu-latest in gnuton toolchain container.
+## 1.CRITIQUE (v1 PLAN.md + docs/gt-ax6000-ap-plan.md §6)
+C1|v1 E2 WRONG|on Broadcom `access_point_mode()`=sw_mode==3&&!wlc_psta (shared/shared.h:2074); does NOT exclude re_mode. v1 rule "use access_point_mode() to cover re_mode" false.
+C2|v1 design WRONG|unconditional AP-mode guards change behaviour for every AP user and need a reflash to undo. Replace with opt-in nvram knobs `disable_<x>=1` (pattern already merged: disable_infosvr services.c:4612, watchdog.c:11119). Default unchanged; toggle on device; bisect without rebuild.
+C3|v1 test method INVALID|v1 P3.xa "killall then observe": watchdog (watchdog.c:11489-11654) respawns networkmap cfg_server conn_diag mastiff amas_lib awsiot infosvr wanduck within one tick. Kill tests prove nothing. Need guarded build first, then on-device toggles.
+C4|v1 cost model WRONG|v1 = one 63min build per daemon guard (~10 builds). v2 = ONE build carrying all opt-in guards; per-daemon testing is nvram+reboot (~3min each).
+C5|v1 FACT WRONG|networkmap_enable=0 honoured only with RTCONFIG_DISABLE_NETWORKMAP (services.c:4453).
+C6|v1 GAP|many targets PREBUILT for GT-AX6000 (cfg_mnt conn_diag networkmap asd nt_center aaews bwdpi; rc/prebuild/GT-AX6000/*.o). Compile-out = drop flag => prebuilt rc objects may fail to link. Need per-flag link-risk evidence before any build.
+C7|v1 GAP|MDNS=n alone swaps avahi for mDNSResponder (router/Makefile:1596-1606) unless TIMEMACHINE MEDIASRV BWDPI also n. Flags force each other (AMAS=>CFGSYNC CONNDIAG DBLOG NOTIFICATION_CENTER; BWDPI/AMAS=>NOTIFICATION_CENTER; NATNL_*/ALEXA=>TUNNEL). Setting one =n can be silently overridden.
+C8|v1 GAP|hardware tasks tiered H; hardware is owner-only (tier U). Agents cannot flash or observe radios.
+C9|v1 GAP|watchdog also polls uploader_check asus_rbd_check amas_ctl_check auto_firmware_check(_merlin) awsiot_check (watchdog.c:11524-11619): ASUS phone-home paths absent from both plans.
+C10|both GAP|no success metric. Define: listeners (netstat -lntu on LAN), resident daemons (ps), rootfs binaries, image bytes. Targets in §4.
+C11|PR2 plan GAP|single master knob `ap_strip=1` proposed; per-daemon knobs better for bisect. Keep per-daemon; ap-harden.sh sets the set.
+C12|both GAP|management-plane hardening (ssh key-only, https-only, access restriction) not tasked. Add P6.
+C13|both GAP|no rule for docs drift (two plans diverged in one day). Rule E8.
+DONE_since_v1: CI green+artifact verify (4c2f436, PR2 root fix 98fd4e0); baseline vs official (985f9b0) => only real diff MERLINUPDATE, fixed (55c9f3a), re-baselined (1011371): reproduces official up to build noise; tools/pkgtb-{unpack,compare}.sh (PR2); disable_infosvr guard (3151f6c, CI green run 40700438258).
 
-## REVIEW OF EXISTING PLAN (README.md "How"/"Status")
+## 2.PHASES + GATES
+P0 CI reproducible+automated compare | gate: compare-official green on default branch with 0 unexplained diffs
+P1 device safety+baseline (owner) | gate: recovery drill PASS, baselines committed
+P2 opt-in guards, ONE build | gate: CI green, compare shows only rc/libshared changes, knobs unset => ap-diff empty vs P1 baseline
+P3 on-device bisect of knobs (owner) | gate: each knob ON 24h + TESTPLAN pass, or marked KEEP
+P4 compile-out tier1 (only P3-proven daemons) | gate: per batch CI+compare+TESTPLAN
+P5 compile-out tier2 subsystems | gate: same; AMAS last, own gate
+P6 management hardening + release discipline
 
-R1|FACT|CI run 40640600800: `make gt-ax6000` SUCCEEDED (63min), image GT-AX6000_3006_102.9_0_nand_squashfs.pkgtb 70438876B sha256 072db7cf...; both artifacts uploaded (IDs 12798202289, 12797389280). Job marked failed only by `EACCES /__w/_temp/_runner_file_commands/set_output_*` in upload-artifact post-step. Cause: container `--user docker`, runner creates per-step files as root after the early chmod. Conclusion: build pipeline works; README "Status: early" understates it.
-R2|GAP|README says "unpack both images and compare contents" but no tooling, no script, no official-image fetch step exists. pkgtb = U-Boot FIT container; needs `dumpimage`(u-boot-tools)+`unsquashfs`; rootfs is UBI/squashfs. Must be a concrete milestone (P1).
-R3|GAP|No recovery/rollback procedure documented before first flash. GT-AX6000 is U-Boot (BCM4912) class: rescue via ASUS Firmware Restoration / rescue-mode TFTP, dual boot partitions. Must precede any hardware test (P2).
-R4|GAP|No baseline measurement of running state (listeners, processes, radios, VLANs) => no objective pass/fail for "did not break the device". Add baseline capture script + diff (P2).
-R5|ORDER|README conflates "switch off" and "compile out". Correct order per service: (a) runtime nvram/kill test on live device, no rebuild, minutes; (b) rc guard commit (`access_point_mode()` conditional), 1 rebuild; (c) compile-out via target.mak flag or Makefile obj gating, 1 rebuild. Do (a) for all targets before any (b)/(c) to avoid 63min cycles on guesses.
-R6|FACT|Runtime knobs already present, zero-rebuild: `wanduck_down=1` (no_need_to_start_wanduck), `networkmap_enable=0`, `cfg_master=0` (cfg_server only runs when cfg_master=1 && (router||AP)), `ava_verb`. infosvr has NO runtime off switch except RTCONFIG_MODEM_BRIDGE+modem_bridge; needs rc guard (b).
-R7|FACT|`infosvr`, `networkmap`, `avahi`, `amas-utils`, `sysstate` are `obj-y` in router/Makefile => compile-out needs Makefile edits, not only flags. `wlc_nt`=NOTIFICATION_CENTER, `asd`=ASD, `aaews/mastiff/asusnatnl`=TUNNEL, `dblog`=DBLOG, `cfg_mnt`=CFGSYNC.
-R8|RISK|Guest Network Pro = MTLANCFG=y; 3006 multi-LAN code shares helpers with AMAS/cfg_mnt (`amas_wgn_shared.h`, `mtlan_utils.h`). Disabling AMAS=y may break VLAN guest. Treat AMAS compile-out as P5 experiment behind its own gate, never bundled.
-R9|RISK|Large flag removals (BWDPI, VPN stack, USB/Samba, TOR, SNMPD) are attack-surface wins but each is a 63min build + flash cycle. Batch max 3 flags per build; one commit per flag so bisect works.
-R10|GAP|No CI cache. Optional: cache `$SDK_DIR/hostTools` + toolchain outputs; low priority, risk of stale objects. Not a milestone until P4.
-R11|DELETE|README line "Builds will be tested on hardware I can afford to brick" => replace with explicit P2 recovery gate.
+## 3.TASKS
+### P0
+P0.1|S|15|-|DONE|upload EACCES fix: root container, docker user for clone+make|run 40698419243 green
+P0.2|O|15|-|DONE|baseline vs official, MERLINUPDATE=y|docs/baseline-*.md verdict
+P0.3|S|15|-|WIP|workflow: concurrency cancel, dispatch input `ref`, retention 30d, step summary sha256, paths-ignore docs/**|yaml+actionlint clean; dispatch run green
+P0.4|S|20|P0.3|WIP|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
+P0.5|H|10|P0.4|TODO|run compare-official on run 40886333807 (PR2 merge build)|0 unexplained diffs recorded in §5
+### P1 (owner; scripts prepared by agents)
+P1.1|S|15|-|WIP|docs/RECOVERY.md (rescue mode, Firmware Restoration, TFTP, nvram reset, backup)|doc merged
+P1.2|U|20|P1.1|TODO|recovery drill on device with OFFICIAL 3006.102.9|§5: PASS + minutes
+P1.3|S|20|-|WIP|tools/ap-baseline.sh ap-diff.sh ap-harden.sh (busybox, secrets redacted) + docs/TESTPLAN.md|sh -n/shellcheck clean
+P1.4|U|15|P1.3|TODO|official image, AP mode, radios+GNP configured: `ap-baseline.sh official`|baseline/official/* committed
+P1.5|U|15|P1.4,P0.5|TODO|flash CI build of default branch: `ap-baseline.sh ci-unmod`; `ap-diff.sh`|diff empty except buildno/version
+P1.6|S|10|P1.4|TODO|docs/LISTENERS.md from baseline: port|proto|proc|needed_AP|knob|plan_ref|every listener row filled
+### P2 opt-in guards (knob unset => upstream behaviour)
+P2.1|S|20|-|WIP|guards A: wanduck(existing wanduck_down if watchdog honours) networkmap mdns lldpd|patch applies; start_+watchdog both guarded
+P2.2|S|20|-|WIP|guards B: disable_cfgsync(cfg_server+cfg_client) disable_conndiag disable_amas_lib disable_obd|same
+P2.3|S|20|-|WIP|guards C: disable_asd disable_nt_center disable_wlc_nt disable_dblog disable_awsiot; mastiff via existing aae_disable_force|same
+P2.4|S|20|P2.1-3|TODO|guards D: uploader asus_rbd amas_ctl auto_firmware_check (C9). research start paths first; split if >20min|same
+P2.5|O|15|P2.1-4|TODO|review all guards: #ifdef balance, no default change, stop_ before return, watchdog covered|review notes in PR
+P2.6|S|10|P2.5|TODO|apply patches, one commit per daemon group, dispatch CI on branch|CI green
+P2.7|H|10|P2.6|TODO|compare-official vs P2 build: only sbin/rc + libshared differ beyond noise|recorded
+P2.8|H|10|P2.6|TODO|ap-harden.sh KNOBS list == knobs actually added (grep `nvram_match("disable_` rc/)|lists equal
+### P3 on-device bisect (owner, scripts do the work)
+P3.1|U|10|P1.5,P2.7|TODO|flash P2 build, knobs unset; ap-diff vs ci-unmod|empty
+P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr asd awsiot nt_center wlc_nt dblog mastiff(aae) lldpd mdns networkmap conndiag wanduck amas_lib obd cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
+P3.3|U|5|P3.2|TODO|all PASS knobs on together; 24h soak; full TESTPLAN|§5 PASS
+P3.4|O|10|P3.3|TODO|classify each daemon: OFF-SAFE (=>P4 candidate) | KEEP(reason)|table in §5
+### P4 compile-out tier1 (flags from research; max 3 flags/build; 1 commit/flag; never ahead of P3.4 OFF-SAFE)
+P4.0|S|20|-|WIP|flag dependency+link-risk map (forces/forced_by/prebuilt/.o refs) => batch order below|table in docs/gt-ax6000-ap-plan.md §8
+P4.x|S|20/batch|P3.4|TODO|<filled from P4.0>|CI green, compare shows only expected removals, TESTPLAN pass
+### P5 compile-out tier2 (one subsystem per build)
+P5.x|S|20|P4|TODO|<filled from P4.0>|same
+P5.AMAS|O|20|P5.*|TODO|AMAS=n experiment gate; precondition research verdict on GNP dependency|decision in §5
+### P6 hardening + release
+P6.1|U|10|P3.3|TODO|sshd key-only LAN-only, https-only (http_enable=1? verify value), disable http on WAN n/a, enable_acc_restriction w/ mgmt subnet|ap-baseline listen.txt: 22,443 only (+53/67 if dnsmasq KEEP)
+P6.2|S|15|P4|TODO|CI on tag v3006.102.9-apN: build+compare, GitHub pre-release "not for use", attach pkgtb+sha256+report|tag release works
+P6.3|S|15|-|TODO|tools/upstream-check.sh: new RMerl 3006.102-wifi6 commits touching files we patch|script output
+P6.4|O|10|P6.3|TODO|policy: stay pinned 102.9 (102.10 is WiFi7-only) vs rebase per point release|decision
+P6.5|H|10|P4|TODO|README Status <- link §5; CHANGES table sha|area|removed|listener_delta|committed
 
-## PHASES
+## 4.TARGETS (P6 exit)
+listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discovery/mesh daemons resident; every removed binary traceable to 1 commit; TESTPLAN 100%; recovery drill PASS on record.
 
-P0 CI green + reproducible unmodified build
-P1 Image comparison tooling (ours vs official)
-P2 Hardware safety: recovery drill + runtime baseline
-P3 Runtime disable (nvram/rc guards), AP-mode only, no package removal
-P4 Compile-out tier 1: cloud/mesh/telemetry daemons
-P5 Compile-out tier 2: large subsystems (VPN, DPI, USB, misc servers)
-P6 Hardening + release discipline
+## 5.STATUS LOG (append-only: date|task|result|ref)
+2026-10-28|P0.1|PASS|run 40698419243
+2026-10-28|P0.2|PASS|1011371 (MERLINUPDATE re-baseline)
+2026-10-28|infosvr guard|CI PASS|run 40700438258
+2026-10-29|PR1+PR2 merged|plans consolidated into v2|3e53067
 
-Gate rule: phase N+1 starts only when all P_N `done_when` are met and recorded in PLAN-STATUS.md.
-
-## P0 CI GREEN
-
-P0.1|S|15|-|Edit workflow: run container as root (drop `--user docker`), add step `sudo -u docker` or `chown -R docker` only for build dir; OR keep docker user and add pre-upload step `sudo chmod -R a+rwX /__w/_temp` immediately before each upload-artifact. Pick one, comment why.|workflow_dispatch run: all steps green, 2 artifacts present
-P0.2|H|5|P0.1|Add `concurrency: {group: build-${{github.ref}}, cancel-in-progress: true}` to workflow.|yaml valid, push of 2 commits cancels first run
-P0.3|H|10|P0.1|Add step after build: `echo "sha256=$(sha256sum image|cut -c1-64)" >> $GITHUB_STEP_SUMMARY`; also `ls -l $SDK_DIR/image/`.|step summary shows sha + size
-P0.4|H|10|P0.1|Add `retention-days: 14` to artifact uploads; add `paths-ignore` for `PLAN*.md`, `docs/**`.|yaml valid
-P0.5|S|15|P0.1|Second clean CI build of identical commit. Record both sha256 in PLAN-STATUS.md. Expect differ (timestamps). Note delta size.|2 sha recorded
-P0.6|H|10|P0.5|Add workflow_dispatch input `ref_to_build` (default branch) so any commit can be rebuilt without push.|dispatch with input works
-P0.7|O|10|P0.5|Review: confirm image name/version string matches official naming (`GT-AX6000_3006_102.9_0_nand_squashfs.pkgtb`). Decide version suffix policy for fork builds (e.g. `_ap1`) to avoid mistaking images.|decision in PLAN-STATUS.md
-
-## P1 IMAGE COMPARISON
-
-P1.1|S|15|-|Write `tools/fw-unpack.sh <pkgtb> <outdir>`: `dumpimage -l`; extract FIT sub-images with `dumpimage -T flat_dt -p N`; detect squashfs via `file`/magic; `unsquashfs -d outdir/rootfs`. Deps: u-boot-tools, squashfs-tools. Script fails loudly if magic not found.|runs on CI artifact; rootfs/ populated
-P1.2|H|10|P1.1|Write `tools/fw-manifest.sh <rootdir>`: emit sorted `path|mode|size|sha256` for all files; symlinks as `path|link|target`.|manifest.txt produced, deterministic across 2 runs
-P1.3|H|15|P1.2|Write `tools/fw-diff.sh <manifestA> <manifestB>`: classify ADDED/REMOVED/CHANGED; print counts + list.|output on two CI builds of same commit shows only expected timestamp-bearing files
-P1.4|S|15|P1.1|Document official image source URL for 3006.102.9 GT-AX6000 (RMerl release mirror). Add CI job `compare` (workflow_dispatch, input `official_url`): download, unpack both, run diff, upload `diff.txt`.|diff.txt artifact present
-P1.5|O|15|P1.4|Review diff of unmodified-source CI build vs official. Classify every CHANGED file: build-timestamp / path-embedded / toolchain / unexplained. Unexplained count must be 0 or each listed with reason.|table in PLAN-STATUS.md; P1 gate
-P1.6|H|10|P1.3|Add `tools/README.md` (machine-readable, 20 lines max) listing scripts, args, deps.|file exists
-P1.7|S|15|P1.1|Extend fw-unpack to also dump `/etc/init.d`, `/sbin/rc` symlink list and `strings rc|grep -E '^(start|stop)_'` into `rc-services.txt` for later rc-change verification.|file produced
-
-## P2 HARDWARE SAFETY + BASELINE
-
-P2.1|S|15|-|Write `docs/RECOVERY.md`: steps for GT-AX6000 rescue mode (power+reset hold, LED pattern), ASUS Firmware Restoration tool, TFTP 192.168.1.1 fallback, U-Boot dual-image note. Cite official ASUS FAQ URL.|doc exists
-P2.2|H|10|P2.1|Perform recovery drill ON DEVICE with OFFICIAL 3006.102.9: enter rescue mode, restore official image, boot, verify version in GUI. Record time taken.|PLAN-STATUS.md: drill PASS + minutes
-P2.3|H|15|-|Write `tools/ap-baseline.sh` (runs on router via ssh, busybox-only): outputs `ps w`, `netstat -lnp` (tcp+udp), `nvram get sw_mode`, `wl -i eth6 status; wl -i eth7 status` (confirm iface names first), `brctl show`, `cat /proc/net/vlan/config`, `ip -d link | grep vlan`, `nvram show | grep -E '^(wl[0-9]_ssid|wl[0-9].[0-9]_ssid|vlan|apg|mtlan|sdn)'`, uptime, free. One file per section under `baseline/<label>/`.|runs clean over ssh, 8 files
-P2.4|H|10|P2.3|Write `tools/ap-diff.sh <labelA> <labelB>`: diff per section, suppress PIDs/timestamps.|clean diff of two captures 1min apart = empty
-P2.5|H|10|P2.3|Capture `baseline/official-3006.102.9/` on official image in AP mode with both radios + guest VLAN configured.|committed (sanitize MACs/SSIDs/keys via sed before commit)
-P2.6|S|10|P2.5|From netstat baseline produce `docs/LISTENERS.md`: table `port|proto|process|needed_in_AP(y/n/?)|plan_ref`. Fill n/? only; y requires reason.|table complete, every listener has a row
-P2.7|H|15|P0.5|Flash CI-built UNMODIFIED image. Capture `baseline/ci-unmodified/`. Run ap-diff vs official.|diff empty except version/build strings; P2 gate
-P2.8|S|10|P2.7|Write `docs/TESTPLAN.md`: 10-item manual checklist (2.4G client assoc, 5G client assoc, guest SSID gets VLAN tag seen on upstream switch, GUI https reachable, ssh reachable, reboot survives, uptime>30min no wl reset in dmesg, upstream DHCP relayed to clients, WPA3 SSID works, LED/button sanity).|doc exists; used from P3 on
-
-## P3 RUNTIME DISABLE (AP mode only, no package removal)
-
-Ordering per service: 3.x.a runtime test via ssh (no build) -> 3.x.b rc guard commit -> single batch build -> flash -> ap-diff + TESTPLAN.
-Guard pattern for rc: `if (access_point_mode()) return 0;` at top of `start_<svc>()`, plus matching no-op in `stop_` if needed. Each guard = 1 commit, message `rc: do not start <svc> in AP mode`.
-
-P3.1a|H|10|P2.7|On device: `nvram set wanduck_down=1; nvram commit; reboot`. Capture baseline `rt-wanduck`. Confirm no listener 18017/18018, no wanduck proc, GUI still reports AP mode OK.|diff shows only wanduck gone
-P3.1b|S|15|P3.1a|Commit: in `no_need_to_start_wanduck()` add `if (access_point_mode()) return 1;` (and same in `start_mtwanduck`). Note: wanduck also drives GUI "internet status"/redirect in AP; check `rc/wanduck.c` for AP-only code paths and list them in commit message.|builds; commit on branch
-P3.2a|H|5|P2.7|On device: `killall infosvr`. Confirm UDP 9999 closed; GUI+ASUS app discovery expected broken, acceptable.|note in PLAN-STATUS.md
-P3.2b|H|10|P3.2a|Commit: `start_infosvr()` guard `if (access_point_mode()) return 0;`.|builds
-P3.3a|H|10|P2.7|On device: `nvram set cfg_master=0; nvram commit; reboot`? CAUTION: cfg_master=0 in AP may trigger cfg_client (RE-mode) path (`x_Setting==1 && cfg_group==""`). Instead test `killall cfg_server` only; confirm 7788 closed, guest VLANs still present after 10min.|note result; if VLAN lost => STOP, escalate to O review
-P3.3b|S|15|P3.3a|Commit: in `start_cfgsync()` add AP-mode early return BEFORE both server and client branches; grep rc for `cfg_pause`,`cfg_alive` users that may block (`rc/init.c`, `rc/lan.c:4718`).|builds; grep list in commit msg
-P3.4a|H|5|P2.7|On device: `killall avahi-daemon`. Confirm UDP 5353 closed, radios unaffected.|note
-P3.4b|H|10|P3.4a|Commit: `start_mdns()` AP guard. Check `restart_mdns()` callers (services.c:8097) for AP paths.|builds
-P3.5a|H|5|P2.7|On device: `nvram set networkmap_enable=0; nvram commit; killall networkmap`. GUI client list will be empty, acceptable.|note
-P3.5b|H|10|P3.5a|Commit: `start_networkmap()` AP guard.|builds
-P3.6a|H|10|P2.7|On device: kill `asd`, `conn_diag`, `wlc_nt`, `dblog`, `sysstate`, `lldpd` one at a time, 2min each, check radios+GUI each. Record which are safe.|table in PLAN-STATUS.md
-P3.6b|S|20|P3.6a|Commits (one per svc, only those marked safe): AP guards in `start_asd`, `start_conn_diag`, `start_wlc_nt`, `start_dblog`, `start_amas_lldpd`. Skip sysstate (obj-y, used by GUI).|builds
-P3.7|H|10|P3.6b|Grep `services.c` lines 12500-12970 (boot start list) for any other `start_*` whose daemon appears in LISTENERS.md with needed=n and no guard yet; add to PLAN-STATUS.md as P3.8+.|list
-P3.8|S|15|P3.6b|Batch build (max all P3 commits). Flash. Capture `baseline/p3`. ap-diff vs ci-unmodified: expect removed procs exactly = guarded set. Run TESTPLAN.|TESTPLAN 10/10; P3 gate
-P3.9|O|15|P3.8|Review every guard diff for: repeater/`re_mode` regressions, `notify_rc("restart_x")` paths that will now log errors, GUI pages that poll the killed daemons (`www/*.asp` grep). Decide which GUI warnings to accept.|review notes
-P3.10|H|10|P3.8|Update README.md Status + link PLAN.md; update LISTENERS.md plan_ref column.|committed
-
-## P4 COMPILE-OUT TIER 1 (cloud/mesh/telemetry)
-
-Each flag: 1 commit `target.mak: GT-AX6000 <FLAG>=n` (+ Makefile `obj-y`->`obj-$(RTCONFIG_X)` when needed). Max 3 flags per build. After each build: fw-diff vs previous (expect only removed binaries/libs), flash, ap-diff, TESTPLAN.
-
-P4.1|S|15|P3.8|Pre-check script `tools/flag-impact.sh <FLAG>`: grep `#ifdef RTCONFIG_<FLAG>` counts in rc/, httpd/, www/, shared/; list packages gated by it in router/Makefile.|script output for each P4 flag saved to docs/flags/<FLAG>.txt
-P4.2|H|10|P4.1|Commit `ASD=n` (asd daemon, ASUS security daemon cloud fetch).|builds
-P4.3|H|10|P4.1|Commit `DBLOG=n`.|builds
-P4.4|H|10|P4.1|Commit `CONNDIAG=n` (in HND-94912_BASE and GT-AX6000 line; override at end of GT-AX6000 line).|builds
-P4.5|S|15|P4.2|Build batch A (P4.2-4.4). fw-diff: only asd/dblog/conn_diag binaries + libs removed. Flash, ap-diff, TESTPLAN.|pass
-P4.6|S|15|P4.1|Commit: router/Makefile `obj-y += infosvr` -> `obj-$(RTCONFIG_INFOSVR)`; add `INFOSVR=n` to GT-AX6000; wrap `start_infosvr` call sites in `#ifdef RTCONFIG_INFOSVR`. Check `shared/discover.h`/httpd for infosvr-only symbols.|builds
-P4.7|S|15|P4.1|Commit: `NATNL_AICLOUD=n NATNL_AIHOME=n` (=> TUNNEL off => aaews/mastiff/asusnatnl dropped). grep httpd for `RTCONFIG_TUNNEL` GUI stubs.|builds
-P4.8|H|10|P4.1|Commit `ALEXA=n GOOGLE_ASST=y->n`? Both are cloud assistant hooks; check `IFTTT` coupling in www.|builds
-P4.9|S|15|P4.6|Build batch B (P4.6-4.8). fw-diff, flash, ap-diff, TESTPLAN.|pass
-P4.10|S|15|P4.1|Commit: `obj-y += networkmap` -> gated `NETWORKMAP=n`; guard `start_networkmap` call sites; www client list page expected to show empty.|builds
-P4.11|S|20|P4.1|Commit: `obj-y += avahi` -> gated by existing `MDNS` flag; `MDNS=n`. Check `TIMEMACHINE`/`MEDIASRV` need avahi (they do) => set `TIMEMACHINE=n MEDIASRV=n` in same batch, separate commits.|builds
-P4.12|S|15|P4.10|Build batch C (P4.10-4.11). fw-diff, flash, ap-diff, TESTPLAN.|pass; P4 gate
-P4.13|O|15|P4.12|Review cumulative diff vs official: list every removed binary; every remaining listener in LISTENERS.md must be needed=y.|table updated
-
-## P5 COMPILE-OUT TIER 2 (large subsystems)
-
-Each is its own batch (1 flag group per build) because blast radius is large.
-
-P5.1|S|20|P4.12|`BWDPI=n` (Trend Micro DPI; also gates `networkmap` dep, `wrs`, `dcd`). Check `nvram` defaults referencing `bwdpi_*` in `shared/defaults.c` for GUI breakage.|builds; TESTPLAN pass
-P5.2|S|20|P4.12|VPN: `OPENVPN=n WIREGUARD=n VPNC=n VPN_FUSION=n VPN_FUSION_MERLIN=n IPSEC=n ACCEL_PPTPD=n TOR=n`. 1 commit each, 1 build. www VPN pages will stub.|builds; TESTPLAN pass
-P5.3|S|20|P4.12|USB/storage: `USB="" USBEXTRAS=n MEDIASRV=n SAMBA3="" NFS=n PRINTER=n TFAT=n NTFS="" HFS="" DISK_MONITOR=n HD_SPINDOWN=n MODEM=n USB_WAN_BACKUP=n XHCI=n`. High coupling risk => O review of flag-impact output before commit.|builds; TESTPLAN pass
-P5.4|H|15|P4.12|Misc servers: `SNMPD=n UPNPIGD2=n QUAGGA=y->n MULTICASTIPTV=n CAPTIVE_PORTAL=n CP_FREEWIFI=n INSTANT_GUARD=n LETSENCRYPT=n EMAIL=n`.|builds; TESTPLAN pass
-P5.5|S|15|P4.12|WAN-only: `DUALWAN=n MULTISERVICE_WAN=n MTPPP=n BONDING_WAN=n`. CAUTION: AP mode still uses wan ifname for upstream bridge; grep `rc/lan.c` for DUALWAN in `access_point_mode()` paths first.|builds; TESTPLAN pass
-P5.6|O|20|P5.5|EXPERIMENT GATE: `AMAS=n` + `CFGSYNC_LOCSYNC=n` + `ETHOBD=n` + `DWB=n`. Precondition: flag-impact shows MTLANCFG paths compile without AMAS. If guest VLAN breaks => revert, keep rc guards from P3.3b only, document in PLAN-STATUS.md.|decision recorded
-P5.7|S|15|P5.6|Cumulative fw-diff vs official + size table (image, rootfs, binary count).|table; P5 gate
-
-## P6 HARDENING + RELEASE DISCIPLINE
-
-P6.1|H|10|P5.7|Final `baseline/final` capture; LISTENERS.md every row needed=y with reason. Target: only 22/tcp (dropbear), 443/tcp (httpd), 53/udp if dnsmasq kept (decide), DHCP client ports.|table
-P6.2|H|10|P5.7|Add `docs/CHANGES.md`: per-commit list `sha|flag_or_guard|removed_binaries|listener_change`.|generated from git log + fw-diff outputs
-P6.3|S|15|P5.7|CI: on tag `v3006.102.9-ap<N>` run build + compare + attach image, sha256, diff.txt, manifest to a GitHub pre-release marked "not for use".|tag release works
-P6.4|H|10|P5.7|README.md: replace Status section with link to PLAN-STATUS.md; keep warning block; remove R11 line.|committed
-P6.5|S|20|P5.7|Rebase check: script `tools/upstream-check.sh` fetches RMerl `3006.102-wifi6`, lists new commits touching files we patched (rc/services.c, target.mak, router/Makefile).|script runs
-P6.6|O|15|P6.5|Decide maintenance policy: rebase onto each Merlin point release vs stay pinned. Record.|decision
-
-## EXECUTION RULES
-
-E1 One task per worker invocation; worker gets: task line, file paths above, `done_when`. Worker returns: diff or output + 1-line result. No worker edits PLAN.md.
-E2 Every rc guard uses `access_point_mode()` from shared (not raw `sw_mode()==SW_MODE_AP`) to also cover `re_mode` semantics; verify helper in `shared/shared.h`.
-E3 Never batch a P5 flag group with any other group. Never batch >3 P4 flags.
-E4 Every flash preceded by: CI green, fw-diff reviewed, recovery image on laptop. Every flash followed by: ap-diff + TESTPLAN within same session.
-E5 PLAN-STATUS.md = append-only log: `date|task|result|sha|notes`. Gate decisions are O-tier only.
-E6 Commit message format: `<area>: <imperative summary>` + body listing grep evidence and removed binaries. No model identifiers.
-E7 If any task exceeds 20min: stop, split into subtasks in PLAN-STATUS.md, continue only on subtasks.
+## 6.EXECUTION RULES
+E1 one task per agent; brief=task line+file refs+done_when; agent returns diff/output+1-line result; agents never commit, push or edit PLAN.md.
+E2 guards: `if (nvram_match("disable_<x>","1")) { stop_<x>(); return 0; }` inside start_<x>, and early return in matching watchdog *_check. Reuse an existing knob only if it covers all start paths AND watchdog.
+E3 parallel agents editing the same C file write patches to scratchpad; orchestrator applies (git apply --check first).
+E4 max 3 flags/build (P4); P5 one subsystem/build; AMAS alone.
+E5 every flash: CI green + compare report reviewed + official image on laptop. after: ap-diff + TESTPLAN same session.
+E6 commit msg `<area>: <imperative>` + evidence (file:line, removed binaries). no model ids.
+E7 >20min => split in this file before continuing.
+E8 docs: facts in docs/gt-ax6000-ap-plan.md, order/status here only; update both in the same PR.
+E9 any PR seen => drive to merged (owner instruction 2026-10-28).
