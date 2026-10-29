@@ -45,7 +45,7 @@ P1.5|U|15|P1.4,P0.5|TODO|flash CI build of default branch: `ap-baseline.sh ci-un
 P1.6|S|10|P1.4|TODO|docs/LISTENERS.md from baseline: port|proto|proc|needed_AP|knob|plan_ref|every listener row filled
 ### P2 opt-in guards (knob unset => upstream behaviour)
 P2.1|S|20|-|DONE|guards A: wanduck=existing wanduck_down (watchdog.c honours via no_need_to_start_wanduck); lldpd=existing stop_amas_lldpd; NEW disable_networkmap (start+watchdog) disable_mdns (no respawn)|DONE in branch
-P2.2|S|20|-|WIP|guards B: disable_cfgsync(cfg_server+cfg_client) disable_conndiag disable_amas_lib disable_obd|same
+P2.2|S|20|-|DONE|guards B: NEW disable_cfgsync (start_cfgsync+cfgsync_check) disable_conndiag (+watchdog) disable_obd (start_obd, start_eth_obd, init check_services). amas_lib: native knob disable_amas_lib in prebuilt amas_lib.o (disassembled), no code. GNP/SDN rc source has no cfg_server/amas_lib dependency; httpd falls back to local apply when cfg_server absent (web.c:27113); confirm on device|this PR
 P2.3|S|20|-|DONE|guards C: NEW disable_asd disable_nt_center disable_wlc_nt; mastiff=existing aae_disable_force; dblog+awsiot not built for GT-AX6000 (FRS_FEEDBACK=n, no AWSIOT)|cd97594
 P2.4|S|20|P2.1-3|DONE|guards D: NEW disable_amas_ctl (start_amas_lanctrl+amas_ctl_check, non-RE). uploader (no UPLOADER), asus_rbd (no ROUTERBOOST), auto_firmware_check (#if 0) not built. Merlin fw check: existing firmware_check_enable=0 + disable_asd=1 (watchdog SIGUSR1s asd before the enable check). Manual UI fw_check ignores knob (user-initiated, kept)|this PR
 P2.5|O|15|P2.1-4|TODO|review all guards: #ifdef balance, no default change, stop_ before return, watchdog covered|review notes in PR

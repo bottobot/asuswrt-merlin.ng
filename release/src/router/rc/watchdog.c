@@ -9774,6 +9774,9 @@ void cfgsync_check()
 	char value[sizeof("9999999")];
 	int pid_by_file = 0, pid_by_name = 0;
 
+	if (nvram_match("disable_cfgsync", "1"))
+		return;
+
 	memset(reboot, 0, sizeof("255"));
 	memset(upgrade, 0, sizeof("255"));
 	f_read_string("/tmp/reboot", reboot, sizeof(reboot));
@@ -9869,6 +9872,8 @@ void cfgsync_check()
 #ifdef RTCONFIG_CONNDIAG
 void conn_diag_check()
 {
+	if (nvram_match("disable_conndiag", "1"))
+		return;
 	if (!pids("conn_diag"))
 		start_conn_diag();
 }

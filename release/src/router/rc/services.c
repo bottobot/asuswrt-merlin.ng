@@ -14153,6 +14153,11 @@ start_obd(void)
 	char *obd_argv[] = {"obd", NULL};
 	pid_t pid;
 
+	if (nvram_match("disable_obd", "1")) {
+		stop_obd();
+		return;
+	}
+
 	if (no_need_obd() == -1)
 		return;
 
@@ -14267,6 +14272,11 @@ void start_eth_obd(void)
 {
 	char *obdeth_argv[] = {"obd_eth", NULL};
 	pid_t pid;
+
+	if (nvram_match("disable_obd", "1")) {
+		stop_eth_obd();
+		return;
+	}
 
 	if (no_need_obdeth() == -1)
 		return;
@@ -14861,10 +14871,12 @@ void check_services(void)
 
 #ifdef RTCONFIG_AMAS
 #if defined(RTCONFIG_BCMWL6) || defined(RTCONFIG_LANTIQ) || defined(RTCONFIG_QCA) || defined(RTCONFIG_REALTEK) || defined(RTCONFIG_RALINK)
-	_check(no_need_obd(), "obd", start_obd);
+	if (!nvram_match("disable_obd", "1"))
+		_check(no_need_obd(), "obd", start_obd);
 #endif
 #if defined(RTCONFIG_ETHOBD)
-	_check(no_need_obdeth(), "obd_eth", start_eth_obd);
+	if (!nvram_match("disable_obd", "1"))
+		_check(no_need_obdeth(), "obd_eth", start_eth_obd);
 #endif
 	// To avoid deadlock, no need to use notify_rc("restart_amas_lldpd") here because the current function is called by process "init".
 	_check_init_x(start_amas_lldpd);
@@ -24777,6 +24789,11 @@ int start_cfgsync(void)
 	pid_t pid;
 	int ret = 0;
 
+	if (nvram_match("disable_cfgsync", "1")) {
+		stop_cfgsync();
+		return 0;
+	}
+
 #ifdef RTCONFIG_MASTER_DET
 	if (nvram_match("cfg_master", "1") && (is_router_mode() || access_point_mode()))
 #else
@@ -24941,6 +24958,11 @@ void start_conn_diag(void){
 #ifdef RTCONFIG_BCM_MFG
 	return;
 #endif
+	if (nvram_match("disable_conndiag", "1")) {
+		stop_conn_diag();
+		return;
+	}
+
 	stop_conn_diag();
 
 	_eval(cmd, NULL, 0, &pid);
