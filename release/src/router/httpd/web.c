@@ -37979,7 +37979,9 @@ ej_httpd_cert_info(int eid, webs_t wp, int argc, char **argv)
 #endif
 		CA_cert_path = HTTPD_ROOTCA_GEN_CERT;
 		snprintf(cert_path, sizeof(cert_path), "%s", HTTPD_GEN_CERT);
+#if defined(RTCONFIG_LETSENCRYPT)
 	}
+#endif
 
 	fp = fopen(cert_path, "r");
 	if (fp == NULL){
