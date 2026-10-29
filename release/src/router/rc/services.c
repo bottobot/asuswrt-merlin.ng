@@ -6583,6 +6583,10 @@ void start_asd(void)
 	stop_asd();
 	xstart("asd");
 }
+#else
+/* prebuilt rc/prebuild/<model>/private.o (monitor_asd) still references start_asd */
+void stop_asd(void) {}
+void start_asd(void) {}
 #endif /* RTCONFIG_ASD */
 
 #ifdef RTCONFIG_GEARUPPLUGIN
