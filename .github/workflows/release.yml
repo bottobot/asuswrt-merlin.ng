@@ -112,7 +112,8 @@ jobs:
           gh run download "$CMP" -n "compare-$BUILD" -D dl/cmp
           ls -l dl/fw dl/cmp
           (cd dl/fw && sha256sum -c sha256sums.txt)
-          [ "$(ls dl/fw/*.pkgtb | wc -l)" = 1 ] || { echo "::error::expected exactly one .pkgtb in the build artifact"; exit 1; }
+          PKGS=(dl/fw/*.pkgtb)
+          if [ "${#PKGS[@]}" != 1 ] || [ ! -f "${PKGS[0]}" ]; then echo "::error::expected exactly one .pkgtb in the build artifact"; exit 1; fi
           [ -s dl/cmp/compare-report.txt ] || { echo "::error::compare-report.txt missing or empty"; exit 1; }
 
       - name: Write release notes
