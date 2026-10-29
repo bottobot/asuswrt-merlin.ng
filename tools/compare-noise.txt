@@ -1,0 +1,30 @@
+# Path regexes (grep -E) for files that differ between this fork's CI build and the official
+# 3006.102.9 GT-AX6000 image purely because of build noise. Source: docs/baseline-3006.102.9-ci-vs-official.md
+# (CI build with MERLINUPDATE=y: 77 content-differing files, all classified as noise).
+# Paths are matched as printed by tools/pkgtb-compare.sh, i.e. with a leading "./".
+# Lines starting with '#' and blank lines are ignored by the workflow before grep -vEf is run.
+# Anything that differs and is NOT matched here is a candidate real difference.
+
+# Build timestamp / build id
+^\./rom/etc/(motd|image_version)$
+^\./bin/busybox$
+^\./usr/sbin/(lighttpd|rdisc6|socat|wget|stubby|lldpd)$
+^\./usr/lib/libgdbm\.so
+# Embedded build / toolchain paths (/project/src vs /workspace/build/amng.gtax6000, /home/docker vs /home/merlin/soft)
+^\./lib/libnl-[a-z]+-3\.so
+^\./lib/libnl/
+^\./usr/lib/libnetsnmp[a-z]*\.so
+^\./usr/bin/(net-snmp-config|net-snmp-create-v3-user|jq|usbmuxd)$
+^\./usr/lib/mod_[a-z]+\.so$
+^\./usr/lib/libav(codec|format|util)\.so
+^\./usr/lib/(libjq|libipset|libiptc|liblightsql|liblldpctl|libpcreposix|libshared|libusb-0\.1|libvorbis|libwpa_client|libatalk|libavahi-core|libgcrypt|libcrypto)\.so
+^\./usr/lib/(libnetfilter_conntrack|libnetfilter_cttimeout)\.so
+^\./usr/lib/(openvpn-plugin-auth-pam|pam_unix)\.so$
+^\./usr/lib/netatalk/uams_dhx2_passwd\.so$
+^\./usr/sbin/(avahi-daemon|ipset|lldpcli|miniupnpd|miniupnpd-igdv2|openvpn|snmpd|traceroute|usbmode)$
+# Module list ordering / path prefix
+^\./lib/modules/[^/]+/modules\.(dep|order)$
+# Empty directories named after the build checkout path (project/src vs workspace/build/amng.gtax6000)
+^\./lib/modules/[^/]+/kernel/(project|workspace)(/|$)
+# Locale noise (UTF-8 vs ? placeholders)
+^\./www/Lang_Hdr\.txt$

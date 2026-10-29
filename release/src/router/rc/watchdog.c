@@ -7891,6 +7891,8 @@ void networkmap_check()
 	if ((sw_mode() == SW_MODE_AP && !nvram_match("cfg_master", "1")) && nvram_match("wifison_ready", "1"))
 		return;
 #endif
+	if (nvram_match("disable_networkmap", "1"))
+		return;
 	if (!pids("networkmap"))
 		start_networkmap(0);
 }
@@ -9678,6 +9680,9 @@ void amas_ctl_check()
 	}
 	else
 	{
+		/* AP/router (non-RE): only amas_lanctrl is watched here */
+		if (nvram_match("disable_amas_ctl", "1"))
+			return;
 #if defined(RTCONFIG_FRONTHAUL_DWB) || defined(RTCONFIG_VIF_ONBOARDING)
 #if !defined(RTCONFIG_NOWL)
 #if defined(RPBE58) && defined(RTCONFIG_BCM_MFG)
@@ -9768,6 +9773,9 @@ void cfgsync_check()
 	unsigned int cfg_pause = nvram_get_int("cfg_pause");
 	char value[sizeof("9999999")];
 	int pid_by_file = 0, pid_by_name = 0;
+
+	if (nvram_match("disable_cfgsync", "1"))
+		return;
 
 	memset(reboot, 0, sizeof("255"));
 	memset(upgrade, 0, sizeof("255"));
@@ -9864,6 +9872,8 @@ void cfgsync_check()
 #ifdef RTCONFIG_CONNDIAG
 void conn_diag_check()
 {
+	if (nvram_match("disable_conndiag", "1"))
+		return;
 	if (!pids("conn_diag"))
 		start_conn_diag();
 }
@@ -11952,7 +11962,7 @@ void auto_firmware_check_merlin()
 
 #ifdef RTCONFIG_ASD
 		//notify asd to download version file
-		if (pids("asd"))
+		if (!nvram_match("disable_asd", "1") && pids("asd"))
 		{
 			killall("asd", SIGUSR1);
 		}

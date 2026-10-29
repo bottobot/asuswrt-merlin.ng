@@ -4282,6 +4282,11 @@ int start_wlc_nt(void)
 		return 0;
 #endif
 
+	if (nvram_match("disable_wlc_nt", "1")) {
+		stop_wlc_nt();
+		return 0;
+	}
+
 	stop_wlc_nt();
 	ret = _eval(ev_argv, NULL, 0, &pid);
 
@@ -4312,6 +4317,11 @@ int start_wlc_monitor(void)
 	if(nvram_match("mfgfw", "1"))
 		return 0;
 #endif
+
+	if (nvram_match("disable_wlc_nt", "1")) {
+		stop_wlc_monitor();
+		return 0;
+	}
 
 	stop_wlc_monitor();
 	ret = _eval(ev_argv, NULL, 0, &pid);
@@ -4459,6 +4469,11 @@ int start_networkmap(int bootwait)
 	   (sw_mode() == SW_MODE_AP && !nvram_match("cfg_master", "1")))
 		return 0;
 #endif
+
+	if (nvram_match("disable_networkmap", "1")) {
+		stop_networkmap();
+		return 0;
+	}
 
 	stop_networkmap();
 
@@ -6555,6 +6570,10 @@ void start_asd(void)
 #ifdef RTCONFIG_BCM_MFG
 	return;
 #endif
+	if (nvram_match("disable_asd", "1")) {
+		stop_asd();
+		return;
+	}
 	stop_asd();
 	xstart("asd");
 }
@@ -8030,6 +8049,11 @@ int start_mdns(void)
 		NULL
 	};
 	pid_t pid;
+
+	if (nvram_match("disable_mdns", "1")) {
+		stop_mdns();
+		return 0;
+	}
 
 #ifdef RTAC68U
 	if (!hw_usb_cap())
@@ -12342,6 +12366,11 @@ start_notification_center(void)
 	char *nt_monitor_argv[] = {"nt_monitor", NULL};
 	pid_t pid;
 
+	if (nvram_match("disable_nt_center", "1")) {
+		stop_notification_center();
+		return 0;
+	}
+
 	if (mediabridge_mode())
 		return 0;
 
@@ -14124,6 +14153,11 @@ start_obd(void)
 	char *obd_argv[] = {"obd", NULL};
 	pid_t pid;
 
+	if (nvram_match("disable_obd", "1")) {
+		stop_obd();
+		return;
+	}
+
 	if (no_need_obd() == -1)
 		return;
 
@@ -14238,6 +14272,11 @@ void start_eth_obd(void)
 {
 	char *obdeth_argv[] = {"obd_eth", NULL};
 	pid_t pid;
+
+	if (nvram_match("disable_obd", "1")) {
+		stop_eth_obd();
+		return;
+	}
 
 	if (no_need_obdeth() == -1)
 		return;
@@ -14832,16 +14871,20 @@ void check_services(void)
 
 #ifdef RTCONFIG_AMAS
 #if defined(RTCONFIG_BCMWL6) || defined(RTCONFIG_LANTIQ) || defined(RTCONFIG_QCA) || defined(RTCONFIG_REALTEK) || defined(RTCONFIG_RALINK)
-	_check(no_need_obd(), "obd", start_obd);
+	if (!nvram_match("disable_obd", "1"))
+		_check(no_need_obd(), "obd", start_obd);
 #endif
 #if defined(RTCONFIG_ETHOBD)
-	_check(no_need_obdeth(), "obd_eth", start_eth_obd);
+	if (!nvram_match("disable_obd", "1"))
+		_check(no_need_obdeth(), "obd_eth", start_eth_obd);
 #endif
 	// To avoid deadlock, no need to use notify_rc("restart_amas_lldpd") here because the current function is called by process "init".
 	_check_init_x(start_amas_lldpd);
 #endif
 #ifdef RTCONFIG_ASD
-	_monitor(monitor_asd);
+	/* monitor_asd (prebuilt) would log and retry start_asd on every pass */
+	if (!nvram_match("disable_asd", "1"))
+		_monitor(monitor_asd);
 #endif
 }
 
@@ -21666,6 +21709,11 @@ void start_amas_lanctrl(void)
 		return;
 	}
 
+	if (nvram_match("disable_amas_ctl", "1") && nvram_get_int("re_mode") != 1) {
+		killall("amas_lanctrl", SIGTERM);	/* not stop_amas_lanctrl(): it notify_rc()s from non-init */
+		return;
+	}
+
 	if(getpid()!=1) {
 		notify_rc("start_amas_lanctrl");
 		return;
@@ -24745,6 +24793,11 @@ int start_cfgsync(void)
 	pid_t pid;
 	int ret = 0;
 
+	if (nvram_match("disable_cfgsync", "1")) {
+		stop_cfgsync();
+		return 0;
+	}
+
 #ifdef RTCONFIG_MASTER_DET
 	if (nvram_match("cfg_master", "1") && (is_router_mode() || access_point_mode()))
 #else
@@ -24909,6 +24962,11 @@ void start_conn_diag(void){
 #ifdef RTCONFIG_BCM_MFG
 	return;
 #endif
+	if (nvram_match("disable_conndiag", "1")) {
+		stop_conn_diag();
+		return;
+	}
+
 	stop_conn_diag();
 
 	_eval(cmd, NULL, 0, &pid);
