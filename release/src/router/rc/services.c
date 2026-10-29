@@ -4475,6 +4475,9 @@ int start_networkmap(int bootwait)
 		return 0;
 	}
 
+	if (!f_exists("/usr/sbin/networkmap"))	/* binary dropped from this build */
+		return 0;
+
 	stop_networkmap();
 
 	if (bootwait)
@@ -4628,6 +4631,9 @@ start_infosvr()
 		stop_infosvr();
 		return 0;
 	}
+
+	if (!f_exists(infosvr_argv[0]))	/* binary dropped from this build */
+		return 0;
 
 	return _eval(infosvr_argv, NULL, 0, &pid);
 }

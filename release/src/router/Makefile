@@ -1728,12 +1728,20 @@ endif
 ifeq ($(RTCONFIG_HAPDEVENT),y)
 obj-$(RTCONFIG_HAPDEVENT) += hapdevent
 endif
+ifneq ($(NO_NETWORKMAP),y)
 obj-y += networkmap
+else
+obj-n += networkmap
+endif
 ifeq ($(BUILD_NAME), $(filter $(BUILD_NAME), EBG19))
 obj-y += rtkswitch
 endif
 ifneq ($(BUILD_NAME), $(filter $(BUILD_NAME), AC2900))
+ifneq ($(NO_INFOSVR),y)
 obj-y += infosvr
+else
+obj-n += infosvr
+endif
 endif
 obj-$(if $(filter y,$(RTCONFIG_INADYN)),,y) += ez-ipupdate
 obj-$(RTCONFIG_INADYN) += libconfuse inadyn
