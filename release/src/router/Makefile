@@ -837,9 +837,9 @@ obj-y += nvram$(BCMEX)$(EX7)
 
 obj-$(RTCONFIG_LIBASUSLOG) += libasuslog
 obj-$(RTCONFIG_SW_HW_AUTH) += sw-hw-auth
-ifeq ($(RTCONFIG_TUNNEL),y)
+# libws.so (wb) is DT_NEEDED by the prebuilt nt_center/nt_monitor/Notify_Event2NC,
+# so it is installed with NOTIFICATION_CENTER even without TUNNEL.
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += wb
-endif
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += json-c
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += sqlite
 obj-$(RTCONFIG_NOTIFICATION_CENTER) += nt_center

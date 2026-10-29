@@ -880,6 +880,13 @@ void add_ifttt_flag(void){
 	snprintf(user_agent, sizeof(user_agent), "%s",IFTTTUSERAGENT);
 	return;
 }
+#else
+/* prebuilt web_hook.o references add_ifttt_flag() unconditionally; with
+ * IFTTT/ALEXA/GOOGLE_ASST disabled it is never meaningful, keep it a no-op. */
+void add_ifttt_flag(void);
+void add_ifttt_flag(void){
+	return;
+}
 #endif
 
 #if 0
