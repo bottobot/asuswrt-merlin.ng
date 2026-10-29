@@ -172,6 +172,7 @@ jobs:
           { echo; echo "### New dangling DT_NEEDED: $(wc -l < work/needed_new.txt)"; echo '```'; head -n 100 work/needed_new.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           [ ! -s work/needed_new.txt ]
       - name: Critical paths present
+        if: ${{ !cancelled() }}
         run: |
           # every pattern that matches the official image must still match the build
           grep -v -e '^#' -e '^[[:space:]]*$' tools/compare-critical.txt > work/critical.re
@@ -186,6 +187,7 @@ jobs:
           { echo; echo "### Critical paths"; if [ $fail -eq 0 ]; then echo "all present"; else echo "**missing paths, see log**"; fi; } >> "$GITHUB_STEP_SUMMARY"
           exit $fail
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
           name: compare-${{ env.RUN_ID }}
           path: compare-report.txt
