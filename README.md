@@ -49,8 +49,20 @@ breaking the device.
 
 ## Status
 
-Early. Nothing is stripped yet, and no build from this repository is recommended
-for anyone, including me.
+Built, not yet tested on hardware. No build from this repository is recommended for
+anyone, including me.
+
+- Opt-in nvram switches can stop daemons an access point does not use (infosvr,
+  networkmap, avahi, asd, AiMesh helpers and others). With every switch unset the
+  router behaves like upstream. `tools/ap-harden.sh` sets and reverts them.
+- Unused features are compiled out: VPN servers, Trend Micro DPI, media server,
+  Time Machine, NFS, printing, captive portal, ASUS cloud tunnel, SNMP, Tor, speed
+  test, PPTP. The image is about 26% smaller.
+- Every CI build is compared with the official 3006.102.9 image. The check fails if
+  anything an access point needs is missing or a library dependency breaks.
+
+Plan, per-task status and the log of results: [`PLAN.md`](PLAN.md). Recovery steps:
+[`docs/RECOVERY.md`](docs/RECOVERY.md).
 
 ## Branches
 
