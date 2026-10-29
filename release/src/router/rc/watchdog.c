@@ -11116,6 +11116,8 @@ void feedback_check(void)
 
 void infosvr_check(void)
 {
+	if (nvram_match("disable_infosvr", "1"))
+		return;
 	if (!pids("infosvr"))
 		start_infosvr();
 }
