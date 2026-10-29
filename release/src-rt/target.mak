@@ -222,6 +222,7 @@ export GT-AX6000 += BUILD_NAME="GT-AX6000" EXT_PHY="BCM84880" NVSIZE="128" DHDAP
 # ap-stripdown: AP-mode compile-out batches (PLAN.md P4). Later exports override earlier ones in .config (src-rt/Makefile:7029).
 export GT-AX6000 += DISABLE_NETWORKMAP=y GAME_MODE=n ADGUARDDNS=n
 export GT-AX6000 += PRINTER=n TIMEMACHINE=n NFS=n
+export GT-AX6000 += SNMPD=n OOKLA=n TOR=n
 
 export XT12 := $(HND-94912_BASE)
 export XT12 += BUILD_NAME="XT12" EXT_PHY="BCM84880" NVSIZE="128" DHDAP=y REPEATER=y IPV6SUPP=y HTTPS=y ARM=y AUTODICT=y \
