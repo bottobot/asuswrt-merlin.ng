@@ -160,6 +160,14 @@ jobs:
           echo "######## content differs, NOT in noise list (all)"; cat "$S/content_new"
           echo "######## only in A, NOT in noise list, outside ./www/ ($(grep -vc '^\./www/' "$S/only_a_new" || true) of $(n $S/only_a_new))"
           grep -v '^\./www/' "$S/only_a_new" || true
+      - name: Explain metadata differences
+        run: |
+          # manifest.tsv columns: path type mode size link. Classify each common path whose metadata differs.
+          join -t $'\t' -j1 <(LC_ALL=C sort work/official/manifest.tsv) <(LC_ALL=C sort work/build/manifest.tsv) | LC_ALL=C awk -F'\t' '
+            { d=""; if($2!=$6)d=d"type,"; if($3!=$7)d=d"mode,"; if($4!=$8)d=d"size,"; if($5!=$9)d=d"link,";
+              if(d!=""){ k=$2":"d; n[k]++; if(s[k]<5) { s[k]++; ex[k]=ex[k] "\n    " $1 " A=" $3 "/" $4 " B=" $7 "/" $8 } } }
+            END { for(k in n) printf "%6d %s%s\n", n[k], k, ex[k] }' | sort -rn | tee work/meta_explained.txt
+          { echo; echo "### Metadata differences by entry type and column"; echo '```'; cat work/meta_explained.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: No new dangling shared-library dependencies
         run: |
           # every DT_NEEDED library of every ELF in the build must exist in the build,

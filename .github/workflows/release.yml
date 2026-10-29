@@ -1,0 +1,150 @@
+name: release
+
+# Publishes a GitHub PRE-release for a tag matching v3006.102.9-ap*.
+# It never builds: it reuses the image of an existing successful build-gt-ax6000 run for the
+# tag's exact commit, and requires a successful compare-official run for that build.
+# If either is missing it fails and says what to dispatch first.
+on:
+  push:
+    tags: ['v3006.102.9-ap*']
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Resolve tag commit
+        id: tag
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v3006\.102\.9-ap[A-Za-z0-9._-]*$ ]] || { echo "::error::unexpected tag name '$TAG'"; exit 1; }
+          # the tag may be lightweight (points at a commit) or annotated (points at a tag object)
+          read -r TYPE OBJ < <(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq '[.object.type, .object.sha] | @tsv')
+          while [ "$TYPE" = tag ]; do
+            read -r TYPE OBJ < <(gh api "repos/$GH_REPO/git/tags/$OBJ" --jq '[.object.type, .object.sha] | @tsv')
+          done
+          [ "$TYPE" = commit ] || { echo "::error::tag $TAG does not point at a commit ($TYPE)"; exit 1; }
+          echo "tag $TAG -> commit $OBJ"
+          echo "sha=$OBJ" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::a release for $TAG already exists; delete it first if you really want to republish"
+            exit 1
+          fi
+
+      - name: Find build and compare runs for this commit
+        id: find
+        env:
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Successful builds whose head_sha is the tag commit, newest first. A dispatch run with a
+          # `ref` input builds a different commit than its head_sha, so each candidate is verified
+          # against the "building <sha>" line that the build job's clone step logs.
+          gh api "repos/$GH_REPO/actions/workflows/build-gt-ax6000.yml/runs?head_sha=$SHA&status=success&per_page=100" \
+            --jq '[.workflow_runs[] | select(.head_sha == "'"$SHA"'" and (.event == "push" or .event == "workflow_dispatch"))]
+                  | sort_by(.created_at) | reverse | .[] | .id' > candidates.txt
+          if [ ! -s candidates.txt ]; then
+            echo "::error::No successful build-gt-ax6000 run found for commit $SHA (tag $TAG). Dispatch build-gt-ax6000 on that commit first (Actions > build-gt-ax6000 > Run workflow, ref=$SHA), wait for it and for compare-official to pass, then re-push the tag."
+            exit 1
+          fi
+          echo "candidate build runs (newest first): $(tr '\n' ' ' < candidates.txt)"
+
+          NO_COMPARE=""
+          while read -r BUILD; do
+            echo "--- build run $BUILD"
+            ART=$(gh api "repos/$GH_REPO/actions/runs/$BUILD/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.name == "gt-ax6000-'"$SHA"'" and (.expired | not)) | .name')
+            [ -n "$ART" ] || { echo "no unexpired artifact gt-ax6000-$SHA in this run, skipping"; continue; }
+
+            JOB=$(gh api "repos/$GH_REPO/actions/runs/$BUILD/jobs?per_page=100" --jq '[.jobs[] | select(.name == "build")][0].id // empty')
+            if [ -z "$JOB" ] || ! gh api "repos/$GH_REPO/actions/jobs/$JOB/logs" > job.log 2>/dev/null; then
+              echo "cannot read the build job log (expired?), cannot verify the built commit, skipping"; continue
+            fi
+            grep -q "building $SHA " job.log || { echo "log does not show a build of $SHA (dispatched with another ref?), skipping"; continue; }
+
+            # compare-official uploads compare-<build run id> even when it fails, so check its conclusion too
+            CMP=""
+            for CID in $(gh api "repos/$GH_REPO/actions/artifacts?name=compare-$BUILD&per_page=100" \
+                           --jq '.artifacts[] | select(.expired | not) | .workflow_run.id'); do
+              read -r CPATH CCONC < <(gh api "repos/$GH_REPO/actions/runs/$CID" --jq '[.path, .conclusion] | @tsv')
+              echo "compare artifact compare-$BUILD from run $CID: $CPATH $CCONC"
+              if [ "$CPATH" = ".github/workflows/compare-official.yml" ] && [ "$CCONC" = success ]; then CMP="$CID"; break; fi
+            done
+            if [ -z "$CMP" ]; then
+              echo "no successful compare-official run with an unexpired compare-$BUILD artifact"
+              NO_COMPARE="$NO_COMPARE $BUILD"
+              continue
+            fi
+
+            echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+            echo "compare=$CMP" >> "$GITHUB_OUTPUT"
+            echo "using build run $BUILD and compare run $CMP"
+            exit 0
+          done < candidates.txt
+
+          if [ -n "$NO_COMPARE" ]; then
+            echo "::error::Found build run(s)$NO_COMPARE for $SHA but no successful compare-official run with an unexpired compare-<run_id> artifact. Dispatch compare-official with run_id=<one of those ids>, wait for it to pass, then re-push the tag."
+          else
+            echo "::error::No usable build for commit $SHA (tag $TAG): the successful build runs have expired artifacts or logs, or built another ref. Dispatch build-gt-ax6000 on that commit first (ref=$SHA), wait for it and for compare-official to pass, then re-push the tag."
+          fi
+          exit 1
+
+      - name: Download firmware and compare report
+        env:
+          BUILD: ${{ steps.find.outputs.build }}
+          CMP: ${{ steps.find.outputs.compare }}
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh run download "$BUILD" -n "gt-ax6000-$SHA" -D dl/fw
+          gh run download "$CMP" -n "compare-$BUILD" -D dl/cmp
+          ls -l dl/fw dl/cmp
+          (cd dl/fw && sha256sum -c sha256sums.txt)
+          PKGS=(dl/fw/*.pkgtb)
+          if [ "${#PKGS[@]}" != 1 ] || [ ! -f "${PKGS[0]}" ]; then echo "::error::expected exactly one .pkgtb in the build artifact"; exit 1; fi
+          [ -s dl/cmp/compare-report.txt ] || { echo "::error::compare-report.txt missing or empty"; exit 1; }
+
+      - name: Write release notes
+        env:
+          BUILD: ${{ steps.find.outputs.build }}
+          CMP: ${{ steps.find.outputs.compare }}
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          set -euo pipefail
+          PKG=$(basename dl/fw/*.pkgtb)
+          IMG_SHA=$(sha256sum "dl/fw/$PKG" | cut -d' ' -f1)
+          cat > notes.md <<EOF
+          **NOT FOR USE.** Personal experiment. Not audited, not secure, not supported. It may brick your router.
+          Not affiliated with Asuswrt-Merlin or ASUS. Do not report problems to them. If you want a router
+          firmware that works, use the official Asuswrt-Merlin release.
+
+          - commit: \`$SHA\`
+          - image: \`$PKG\`
+          - sha256: \`$IMG_SHA\`
+          - built by [build run $BUILD](https://github.com/$GH_REPO/actions/runs/$BUILD), checked by [compare run $CMP](https://github.com/$GH_REPO/actions/runs/$CMP)
+          - compare-report.txt: diff against the official 3006.102.9 image
+          - plan and status: [PLAN.md](https://github.com/$GH_REPO/blob/$SHA/PLAN.md)
+          EOF
+          cat notes.md
+
+      - name: Create pre-release
+        env:
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" --verify-tag --prerelease --latest=false \
+            --title "$TAG (NOT FOR USE)" --notes-file notes.md \
+            dl/fw/*.pkgtb dl/fw/sha256sums.txt dl/cmp/compare-report.txt
+          gh release view "$TAG" --json url,isPrerelease --jq '"\(.url) prerelease=\(.isPrerelease)"'

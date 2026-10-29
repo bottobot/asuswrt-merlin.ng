@@ -49,9 +49,9 @@ jobs:
           URL="https://github.com/$GITHUB_REPOSITORY.git"
           if printf '%s' "$REF" | grep -Eq '^[0-9a-fA-F]{40}$'; then
             # --branch does not accept SHAs: fetch the commit by id, then check it out
-            sudo -u docker -H bash -c 'set -e; git init -q /project/src; cd /project/src; git remote add origin "$1"; git fetch --depth 1 origin "$2"; git checkout -q FETCH_HEAD' _ "$URL" "$REF"
+            sudo -u docker -H bash -c 'set -e; umask 022; git init -q /project/src; cd /project/src; git remote add origin "$1"; git fetch --depth 1 origin "$2"; git checkout -q FETCH_HEAD' _ "$URL" "$REF"
           else
-            sudo -u docker -H git clone --depth 1 --branch "$REF" "$URL" /project/src
+            sudo -u docker -H bash -c 'umask 022; git clone --depth 1 --branch "$1" "$2" /project/src' _ "$REF" "$URL"
           fi
           sudo -u docker -H git -C /project/src log -1 --format='building %H %s'
       - name: Build
@@ -61,6 +61,7 @@ jobs:
           MERLINUPDATE: y   # matches the official release build; see docs/baseline-3006.102.9-ci-vs-official.md
         run: |
           sudo -u docker -H env SDK_DIR="$SDK_DIR" MERLINUPDATE="$MERLINUPDATE" bash -c '
+            umask 022   # match the official image modes (755/644); sudo -u docker otherwise inherits umask 002
             source /home/docker/envs/bcm-hnd-ax-4.19.sh
             cd "$SDK_DIR"
             make gt-ax6000 > /project/build.log 2>&1 || { tail -n 200 /project/build.log; exit 1; }

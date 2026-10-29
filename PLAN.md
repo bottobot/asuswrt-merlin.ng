@@ -39,7 +39,7 @@ P0.2|O|15|-|DONE|baseline vs official, MERLINUPDATE=y|docs/baseline-*.md verdict
 P0.3|S|15|-|DONE|workflow: concurrency cancel, dispatch input `ref`, retention 30d, step summary sha256, paths-ignore docs/**|yaml+actionlint clean; dispatch run green
 P0.4|S|20|P0.3|DONE|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
 P0.5|H|10|P0.4|DONE|compare-official on default-branch build run 40898145376 (cef17c4): beyond noise only ./sbin/rc differs (= PR3 guards). compare run 40906828698|0 unexplained diffs
-P0.6|H|15|P0.5|TODO|metadata-differs=2407 vs ~70 in baseline doc: find cause (likely dir sizes or uid/gid in manifest.tsv); filter or fix pkgtb-unpack manifest so the count is meaningful|count explained, noise-filtered
+P0.6|H|15|P0.5|DONE|cause: since PR2 build ran via sudo -u docker with umask 002 => CI image group-writable (2386 mode-only diffs). fix umask 022 for clone+make (b181c24); after fix only baseline class remains (official rom/etc 664/775 vs build 644/755). compare now classifies metadata diffs|run 40930588678
 ### P1 (owner; scripts prepared by agents)
 P1.1|S|15|-|DONE(steps partly UNVERIFIED)|docs/RECOVERY.md (rescue mode, Firmware Restoration, TFTP, nvram reset, backup)|doc merged
 P1.2|U|20|P1.1|TODO|recovery drill on device with OFFICIAL 3006.102.9|§5: PASS + minutes
@@ -86,9 +86,9 @@ P5.CFG|S|15|P3 cfgsync PASS|TODO|cfg_mnt/Makefile NO_CFGSERVER=y: skip cfg_serve
 P5.AMAS|O|-|-|CANCELLED|AMAS=n breaks GNP build (§8.1): prebuilt amas_apg.o/web_hook.o need CFGSYNC/LIBASUSLOG/ACCOUNT_BINDING symbols, MULTILAN code calls AMAS-only fns. CONNDIAG DBLOG CFGSYNC NOTIFICATION_CENTER stay compiled; runtime knobs only|-
 ### P6 hardening + release
 P6.1|U|10|P3.3|TODO|sshd key-only LAN-only, https-only (http_enable=1? verify value), disable http on WAN n/a, enable_acc_restriction w/ mgmt subnet|ap-baseline listen.txt: 22,443 only (+53/67 if dnsmasq KEEP)
-P6.2|S|15|P4|TODO|CI on tag v3006.102.9-apN: build+compare, GitHub pre-release "not for use", attach pkgtb+sha256+report|tag release works
-P6.3|S|15|-|TODO|tools/upstream-check.sh: new RMerl 3006.102-wifi6 commits touching files we patch|script output
-P6.4|O|10|P6.3|TODO|policy: stay pinned 102.9 (102.10 is WiFi7-only) vs rebase per point release|decision
+P6.2|S|15|P4|DONE(untested until first tag)|.github/workflows/release.yml: on tag v3006.102.9-ap*: reuse green build of tag commit (no rebuild) + successful compare-<run_id>; gh release --prerelease 'NOT FOR USE' with pkgtb, sha256sums, compare-report|first tag publishes
+P6.3|S|15|-|DONE|tools/upstream-check.sh [branch] [base]: fetch RMerl, list new commits + overlap with fork-patched files; prints NEW_COMMITS OVERLAP_COUNT VERSION_BUMP|run 2026-10-29: NEW_COMMITS=39 OVERLAP_COUNT=6 VERSION_BUMP=yes
+P6.4|U+O|10|P6.3|TODO(owner decision)|evidence 2026-10-29: upstream 3006.102-wifi6 has 39 commits past c73015d incl 1e043548f9 'Bumped revision to 3006.102.10 alpha1' (contradicts PR2 note '102.10 WiFi7-only'); overlaps: httpd TLS idle stall e0470de0b3, httpd 3 mem leaks f382a51904, watchdog fw-check rate a591c3b6bb, services UDP timeouts 45a5ffd741, Makefile 957b70e0a9 d4797eccc9. RECOMMEND: stay pinned on 102.9 for P1/P3 device work (stable baseline), cherry-pick e0470de0b3+f382a51904 (httpd = only kept web-facing daemon) as a small PR after review, rebase onto 102.10 final when released (re-run P0 baseline+compare)|decision recorded
 P6.5|H|10|P4|TODO|README Status <- link §5; CHANGES table sha|area|removed|listener_delta|committed
 
 ## 4.TARGETS (P6 exit)
@@ -102,6 +102,8 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
 2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|P0.6 umask fix|2386 group-write diffs gone; critical 26/26; dangling new 0|build 40923528833 compare 40930588678
+2026-10-29|PR4 post-merge|default build 40921836403 green; compare 40928799673 green
 2026-10-29|PR4 compare|critical paths 26/26 present; new dangling DT_NEEDED 0 (official baseline 1: lld2d|libbcm_crc.so); removals = strongswan bwdpi netatalk minidlna nfs chilli/lighttpd aaews/mastiff infosvr networkmap asd ookla tor pptpd; /usr/lib/libws.so gone but /lib/libws.so kept (official ships both)|run 40920909282
 2026-10-29|PR4 head build P4+P5|PASS 41min; image 52,148,504 B vs 70,438,868 B (-18.3 MB, -26%)|run 40910854359
 2026-10-29|P0.5 compare|PASS: only sbin/rc beyond noise|run 40906828698
