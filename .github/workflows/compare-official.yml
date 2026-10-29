@@ -60,10 +60,10 @@ jobs:
             git fetch --depth 1 origin "$GITHUB_SHA"
             git checkout FETCH_HEAD -- tools
           fi
-          if [ ! -f tools/compare-critical.txt ]; then
+          if [ ! -f tools/compare-critical.txt ] || [ ! -f tools/elf-needed-check.sh ]; then
             # policy list, not a build input: take it from this workflow's commit
             git fetch --depth 1 origin "$GITHUB_SHA"
-            git checkout FETCH_HEAD -- tools/compare-critical.txt
+            git checkout FETCH_HEAD -- tools/compare-critical.txt tools/elf-needed-check.sh
           fi
       - name: Install unpack tools
         run: |
@@ -160,6 +160,17 @@ jobs:
           echo "######## content differs, NOT in noise list (all)"; cat "$S/content_new"
           echo "######## only in A, NOT in noise list, outside ./www/ ($(grep -vc '^\./www/' "$S/only_a_new" || true) of $(n $S/only_a_new))"
           grep -v '^\./www/' "$S/only_a_new" || true
+      - name: No new dangling shared-library dependencies
+        run: |
+          # every DT_NEEDED library of every ELF in the build must exist in the build,
+          # except dependencies that are already dangling in the official image
+          bash tools/elf-needed-check.sh work/official/rootfs > work/needed_official.txt
+          bash tools/elf-needed-check.sh work/build/rootfs > work/needed_build.txt
+          comm -13 work/needed_official.txt work/needed_build.txt > work/needed_new.txt
+          echo "official dangling: $(wc -l < work/needed_official.txt)"; cat work/needed_official.txt
+          echo "build dangling, NEW (path|library): $(wc -l < work/needed_new.txt)"; cat work/needed_new.txt
+          { echo; echo "### New dangling DT_NEEDED: $(wc -l < work/needed_new.txt)"; echo '```'; head -n 100 work/needed_new.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          [ ! -s work/needed_new.txt ]
       - name: Critical paths present
         run: |
           # every pattern that matches the official image must still match the build
