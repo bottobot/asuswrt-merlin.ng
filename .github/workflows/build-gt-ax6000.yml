@@ -15,7 +15,12 @@ jobs:
     container:
       # Pinned by digest: this was the `latest` tag on 2026-10-28 (the image used by the first green build). Bump by hand.
       image: gnuton/asuswrt-merlin-toolchains-docker@sha256:8c9681987352d6eb8a38708126c9c39edd8dd28a7bf6c0cedc0e9534387f9ab3
-      options: --user docker
+      # The image's default user is `docker`. As that user the runner's per-step
+      # files under /__w/_temp/_runner_file_commands are unwritable, so
+      # upload-artifact's set_output fails (EACCES) after the upload succeeded.
+      # Run the container as root and drop to docker only for the clone and
+      # the build, because the SDK's prebuild_checks refuses to build as root.
+      options: --user root
       volumes:
         - /mnt:/project   # the runner's /mnt disk is much larger than /
     env:
@@ -23,38 +28,37 @@ jobs:
     steps:
       - name: Disk and toolchain check
         run: |
-          sudo chown docker /project
           df -h / /project
           ls /home/docker/am-toolchains/brcm-arm-hnd/ | grep -i 9.2
       - name: Clone this branch
-        run: git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" /project/src
+        run: |
+          chown docker /project
+          sudo -u docker -H git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" /project/src
       - name: Build
         id: build
-        working-directory: ${{ env.SDK_DIR }}
         shell: bash
         env:
           MERLINUPDATE: y   # matches the official release build; see docs/baseline-3006.102.9-ci-vs-official.md
         run: |
-          source /home/docker/envs/bcm-hnd-ax-4.19.sh
-          make gt-ax6000 > /project/build.log 2>&1 || { tail -n 200 /project/build.log; exit 1; }
-          tail -n 30 /project/build.log
-          df -h /project
+          sudo -u docker -H env SDK_DIR="$SDK_DIR" MERLINUPDATE="$MERLINUPDATE" bash -c '
+            source /home/docker/envs/bcm-hnd-ax-4.19.sh
+            cd "$SDK_DIR"
+            make gt-ax6000 > /project/build.log 2>&1 || { tail -n 200 /project/build.log; exit 1; }
+            tail -n 30 /project/build.log
+            df -h /project
+          '
       - name: Collect image
         if: success()
         run: |
           mkdir -p /project/out
           cp "$SDK_DIR"/image/*_nand_squashfs.pkgtb /project/out/
           cd /project/out && sha256sum * > sha256sums.txt && cat sha256sums.txt && ls -l
-      # upload-artifact fails with EACCES on set_output under --user docker even though the upload succeeds, so it is non-fatal here;
-      # the final step verifies the artifact really exists.
       - uses: actions/upload-artifact@v4
-        continue-on-error: true
         if: success()
         with:
           name: gt-ax6000-${{ github.sha }}
           path: /project/out/
       - uses: actions/upload-artifact@v4
-        continue-on-error: true
         if: always()
         with:
           name: build-log-${{ github.sha }}
