@@ -54,7 +54,7 @@ P2.3|S|20|-|DONE|guards C: NEW disable_asd disable_nt_center disable_wlc_nt; mas
 P2.4|S|20|P2.1-3|DONE|guards D: NEW disable_amas_ctl (start_amas_lanctrl+amas_ctl_check, non-RE). uploader (no UPLOADER), asus_rbd (no ROUTERBOOST), auto_firmware_check (#if 0) not built. Merlin fw check: existing firmware_check_enable=0 + disable_asd=1 (watchdog SIGUSR1s asd before the enable check). Manual UI fw_check ignores knob (user-initiated, kept)|this PR
 P2.5|O|15|P2.1-4|DONE|review all guards: #ifdef balance, no default change, stop_ before return, watchdog covered|review notes in PR
 P2.6|S|10|P2.5|DONE|apply patches, one commit per daemon group, dispatch CI on branch|CI green
-P2.7|H|10|P2.6|TODO|compare-official vs P2 build: only sbin/rc + libshared differ beyond noise|recorded
+P2.7|H|10|P2.6|DONE|compare-official vs P2 build (default-branch run 40898145376, cef17c4): beyond noise only sbin/rc|compare run 40906828698
 P2.8|H|10|P2.6|DONE|ap-harden.sh KNOBS list == knobs actually added (grep `nvram_match("disable_` rc/)|lists equal
 ### P3 on-device bisect (owner, scripts do the work)
 P3.1|U|10|P1.5,P2.7|TODO|flash P2 build, knobs unset; ap-diff vs ci-unmod|empty
@@ -72,7 +72,7 @@ P4.B5|S|10|-|BUILT(CI green; flash pending)|+fix httpd/web.c ej_httpd_cert_info 
 P4.B6|S|10|-|BUILT(CI green; flash pending)|ACCEL_PPTPD=n only. MULTICASTIPTV KEPT (init-broadcom.c:11833 WAN_UNIT_IPTV unguarded); WIREGUARD KEPT (openvpn_control.h uses wg_type_t, defined only under WIREGUARD)|accel-pptpd removed
 P4.B7|S|10|-|BUILT(CI green; flash pending)|NATNL_AICLOUD=n ALEXA=n INTERNETCTRL=n together (keep GOOGLE_ASST=y NATNL_AIHOME=y; TUNNEL stays)|CI green
 P4.B8|S|10|-|DROPPED|OPENVPN=n VPNC=n: rc/sdn.c (GNP) calls amvpn_set_killswitch_rules(VPNDIR_PROTO_OPENVPN) unguarded (sdn.c:1124) and vpnc_* from vpnc_fusion.o (needs VPNC) under VPN_FUSION (run 40902798521). Not worth patching GNP code for size; OpenVPN never runs in AP|-
-P4.9|O|15|P4.B1-8|TODO|review combined compare report; any removal not predicted => investigate before flash|notes
+P4.9|O|15|P4.B1-8|DONE|combined P4+P5 compare reviewed: critical 26/26, new dangling 0, removals match batches|compare run 40920909282
 P4.10|U|20/batch|P3.4,P4.9|TODO|flash in order B1..B8, ap-diff+TESTPLAN each|§5 PASS per batch
 ### P5 compile-out tier2: source patch required first (1 concern per commit; CI validates)
 P5.B9|S|15|P4|BUILT(CI green; flash pending)|UUPLUGIN=n + shared/Makefile:572 link uu_utils.o unconditionally (private.o, priv_webapi.o U uu_model_check)|CI green
@@ -90,6 +90,11 @@ P6.2|S|15|P4|DONE(untested until first tag)|.github/workflows/release.yml: on ta
 P6.3|S|15|-|DONE|tools/upstream-check.sh [branch] [base]: fetch RMerl, list new commits + overlap with fork-patched files; prints NEW_COMMITS OVERLAP_COUNT VERSION_BUMP|run 2026-10-29: NEW_COMMITS=39 OVERLAP_COUNT=6 VERSION_BUMP=yes
 P6.4|U+O|10|P6.3|TODO(owner decision)|evidence 2026-10-29: upstream 3006.102-wifi6 has 39 commits past c73015d incl 1e043548f9 'Bumped revision to 3006.102.10 alpha1' (contradicts PR2 note '102.10 WiFi7-only'); overlaps: httpd TLS idle stall e0470de0b3, httpd 3 mem leaks f382a51904, watchdog fw-check rate a591c3b6bb, services UDP timeouts 45a5ffd741, Makefile 957b70e0a9 d4797eccc9. RECOMMEND: stay pinned on 102.9 for P1/P3 device work (stable baseline), cherry-pick e0470de0b3+f382a51904 (httpd = only kept web-facing daemon) as a small PR after review, rebase onto 102.10 final when released (re-run P0 baseline+compare)|decision recorded
 P6.5|H|10|P4|DONE|README Status updated (built, untested on hardware; links PLAN + RECOVERY); per-commit change table = PLAN §5 + PR descriptions|README current
+
+## 3b.ARTIFACTS TO FLASH (Actions artifacts expire 30d after their run; re-dispatch build-gt-ax6000 with ref=<sha> if gone)
+P1.5 unmodified-equivalent: none kept; use official image for P1.4, then P3.1 build below with all knobs unset
+P3.1 guards only (no compile-out): run 40898145376 artifact gt-ax6000-cef17c4fb7500b42f88a871dffa84c95ac5191c8 (built 2026-10-29, group-write modes: pre-umask fix; re-dispatch on cef17c4 after merge of umask fix if exact modes matter)
+P4.10 guards + compile-out + umask fix: default-branch build of merge 5b7edcd (PR 5) or later; check compare-official green for that run first (E10)
 
 ## 4.TARGETS (P6 exit)
 listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discovery/mesh daemons resident; every removed binary traceable to 1 commit; TESTPLAN 100%; recovery drill PASS on record.
