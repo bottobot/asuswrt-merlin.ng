@@ -67,8 +67,8 @@ P4.B1|S|10|-|TODO|DISABLE_NETWORKMAP=y GAME_MODE=n ADGUARDDNS=n (DISABLE_NETWORK
 P4.B2|S|10|-|TODO|PRINTER=n TIMEMACHINE=n NFS=n (XT12 same-SDK exemplar)|compare: u2ec LPRng netatalk nfs-utils portmap removed
 P4.B3|S|10|-|TODO|SNMPD=n OOKLA=n TOR=n|net-snmp ookla tor removed
 P4.B4|S|10|P4.B1|TODO|CAPTIVE_PORTAL=n CP_FREEWIFI=n WTFAST_V2=n (shm ABI: networkmap must not run => B1 first; WTFAST_V2 no-op)|coovachilli lighttpd samba-3.5.8 removed
-P4.B5|S|10|-|TODO|LETSENCRYPT=n UPNPIGD2=n EMAIL=n|acme.sh socat miniupnpd-igdv2 removed (email stays: NC needs it)
-P4.B6|S|10|-|TODO|ACCEL_PPTPD=n WIREGUARD=n (WIREGUARD=n valid only while VPN_FUSION=y). MULTICASTIPTV KEPT: init-broadcom.c:11833 uses WAN_UNIT_IPTV unguarded (run 40898342703)|accel-pptpd wireguard-tools removed
+P4.B5|S|10|-|TODO|+fix httpd/web.c ej_httpd_cert_info brace unbalanced without LETSENCRYPT (09ad30d); LETSENCRYPT=n UPNPIGD2=n EMAIL=n|acme.sh socat miniupnpd-igdv2 removed (email stays: NC needs it)
+P4.B6|S|10|-|TODO|ACCEL_PPTPD=n only. MULTICASTIPTV KEPT (init-broadcom.c:11833 WAN_UNIT_IPTV unguarded); WIREGUARD KEPT (openvpn_control.h uses wg_type_t, defined only under WIREGUARD)|accel-pptpd removed
 P4.B7|S|10|-|TODO|NATNL_AICLOUD=n ALEXA=n INTERNETCTRL=n together (keep GOOGLE_ASST=y NATNL_AIHOME=y; TUNNEL stays)|CI green
 P4.B8|S|10|-|DROPPED|OPENVPN=n VPNC=n: rc/sdn.c (GNP) calls amvpn_set_killswitch_rules(VPNDIR_PROTO_OPENVPN) unguarded (sdn.c:1124) and vpnc_* from vpnc_fusion.o (needs VPNC) under VPN_FUSION (run 40902798521). Not worth patching GNP code for size; OpenVPN never runs in AP|-
 P4.9|O|15|P4.B1-8|TODO|review combined compare report; any removal not predicted => investigate before flash|notes
@@ -77,7 +77,7 @@ P4.10|U|20/batch|P3.4,P4.9|TODO|flash in order B1..B8, ap-diff+TESTPLAN each|§5
 P5.B9|S|15|P4|TODO|UUPLUGIN=n + shared/Makefile:572 link uu_utils.o unconditionally (private.o, priv_webapi.o U uu_model_check)|CI green
 P5.B10|S|15|P4|TODO|MEDIASRV=n + rc/usb.c #else stub find_dms_dbdir_candidate (broadcom.o U)|CI green; minidlna mt-daapd ffmpeg removed
 P5.B11|S|20|P4|TODO|IPSEC=n INSTANT_GUARD=n + httpd/web.c get_ipsec_remote_id gen_pre_shared_key unconditional (web_hook.o U)|CI green; strongswan removed
-P5.B12|S|20|P4.B1,infosvr-gate|TODO|ASD=n + stub start_asd (private.o U); networkmap gated off or LIBASC kept (networkmap NEEDED libasc.so)|CI green; asd libasd removed
+P5.B12|S|20|P4.B1,infosvr-gate|TODO|+libasc built when TPVPN (rc links -lasc) (d91dc5c); ASD=n + stub start_asd (private.o U); networkmap gated off or LIBASC kept (networkmap NEEDED libasc.so)|CI green; asd libasd removed
 P5.B13|S|20|P4.B7|TODO|NATNL_AIHOME=n GOOGLE_ASST=n + aae_ipc.o unconditional (shared/Makefile:525) + wb/libws.so out of TUNNEL guard (nt_center NEEDED libws.so) + add_ifttt_flag unconditional (httpd.c:262)|CI green; aaews mastiff asusnatnl removed
 P5.B14|O|20|P5.B10,P4.B1|TODO|BWDPI=n + stubs check_bwdpi_nvram_setting check_tdts_module_exist get_fw_mesh_extender get_fw_user_list mesh_set_extender check_wrs_switch; networkmap gated off; then MDNS=n TIMEMACHINE=n (MEDIASRV already n) drops avahi w/o mDNSResponder|CI green; bwdpi ~6.9MB, avahi removed
 P5.GATE|S|20|-|TODO|NO_INFOSVR NO_NETWORKMAP package gating (patch ready p5-gate, obj-n keeps clean) + f_exists early-return in start_infosvr start_networkmap (p5-gate-rcguard; stops watchdog fork loop). keep networkmap/ dir; GUI find-ASUS (asusdiscovery) breaks|CI green; binaries absent
@@ -101,6 +101,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
 2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|source scan|3 certain breaks fixed pre-build: WIREGUARD kept, web.c brace, libasc for TPVPN|6ffc07b 09ad30d d91dc5c
 2026-10-29|head build|FAIL sdn.c VPNDIR_PROTO_OPENVPN (OPENVPN=n); B8 dropped|run 40902798521
 2026-10-29|P4 tip build|FAIL WAN_UNIT_IPTV (MULTICASTIPTV=n); flag kept|run 40898342703, fix ffa4a2e
 
