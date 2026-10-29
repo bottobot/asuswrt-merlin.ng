@@ -1,0 +1,159 @@
+name: compare-official
+
+# Unpacks a build-gt-ax6000 image and the official Asuswrt-Merlin 3006.102.9 GT-AX6000 image and
+# compares them rootfs-file by rootfs-file (tools/pkgtb-unpack.sh, tools/pkgtb-compare.sh).
+# A = official, B = this fork's CI build. Known build noise is listed in tools/compare-noise.txt.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run id of a successful build-gt-ax6000 run (its gt-ax6000-* artifact is compared)'
+        required: true
+        type: string
+      official_url:
+        description: 'Download URL of the official release zip (or a bare .pkgtb)'
+        required: false
+        default: 'https://sourceforge.net/projects/asuswrt-merlin/files/GT-AX6000/Release/GT-AX6000_3006_102.9_0.zip/download'
+        type: string
+      official_sha256:
+        description: 'Expected sha256 of the official .pkgtb inside the zip'
+        required: false
+        default: 'f64453852fb3eacb996978cc2c0abc505e744c7a9a3a4522f0a98866e2c7a7e0'
+        type: string
+  workflow_run:
+    workflows: [build-gt-ax6000]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compare:
+    # for workflow_run only compare successful builds
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+      # defaults repeated because workflow_run events have no inputs
+      OFFICIAL_URL: ${{ inputs.official_url || 'https://sourceforge.net/projects/asuswrt-merlin/files/GT-AX6000/Release/GT-AX6000_3006_102.9_0.zip/download' }}
+      OFFICIAL_SHA256: ${{ inputs.official_sha256 || 'f64453852fb3eacb996978cc2c0abc505e744c7a9a3a4522f0a98866e2c7a7e0' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Resolve build run
+        id: run
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "run_id must be numeric, got '$RUN_ID'"; exit 1; }
+          read -r SHA CONCLUSION < <(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '[.head_sha, .conclusion] | @tsv')
+          echo "run $RUN_ID: head_sha=$SHA conclusion=$CONCLUSION"
+          [ "$CONCLUSION" = success ] || { echo "build run $RUN_ID did not succeed ($CONCLUSION)"; exit 1; }
+          echo "head_sha=$SHA" >> "$GITHUB_OUTPUT"
+      - name: Checkout tools at the build's commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.run.outputs.head_sha }}
+      - name: Fall back to this workflow's tools if the build commit predates them
+        run: |
+          if [ ! -f tools/pkgtb-unpack.sh ] || [ ! -f tools/pkgtb-compare.sh ] || [ ! -f tools/compare-noise.txt ]; then
+            echo "tools missing at build commit; using tools/ from $GITHUB_SHA"
+            git fetch --depth 1 origin "$GITHUB_SHA"
+            git checkout FETCH_HEAD -- tools
+          fi
+      - name: Install unpack tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q u-boot-tools squashfs-tools
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gt-ax6000-*
+          merge-multiple: true
+          path: build
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+      - name: Verify build image
+        run: |
+          ls -l build
+          (cd build && sha256sum -c sha256sums.txt)
+          [ "$(ls build/*.pkgtb | wc -l)" = 1 ] || { echo "expected exactly one .pkgtb in the build artifact"; exit 1; }
+      - name: Download and verify official image
+        run: |
+          mkdir official
+          curl -fSL --retry 3 --retry-delay 10 -o official/download "$OFFICIAL_URL"
+          ls -l official/download
+          if [ "$(head -c2 official/download)" = PK ]; then
+            unzip -o -q official/download '*.pkgtb' -d official
+          else
+            mv official/download official/official.pkgtb
+          fi
+          rm -f official/download
+          [ "$(ls official/*.pkgtb | wc -l)" = 1 ] || { echo "expected exactly one .pkgtb in the official download"; exit 1; }
+          OFFICIAL_PKG="$(ls official/*.pkgtb)"
+          echo "$OFFICIAL_SHA256  $OFFICIAL_PKG" | sha256sum -c -
+      - name: Unpack both images
+        run: |
+          # root: unsquashfs needs it to create device nodes and read mode-000 files; chown back afterwards
+          sudo bash tools/pkgtb-unpack.sh official/*.pkgtb work/official
+          sudo bash tools/pkgtb-unpack.sh build/*.pkgtb work/build
+          sudo chown -R "$(id -u):$(id -g)" work
+      - name: Compare
+        env:
+          HEAD_SHA: ${{ steps.run.outputs.head_sha }}
+        run: |
+          S=work/sections; mkdir -p "$S"
+          : > "$S/only_a"; : > "$S/only_b"; : > "$S/content"; : > "$S/meta"
+          bash tools/pkgtb-compare.sh work/official work/build > work/full.txt
+          awk -v d="$S" '
+            /^== only in A/           { out = d "/only_a"; next }
+            /^== only in B/           { out = d "/only_b"; next }
+            /^== content differs/     { out = d "/content"; next }
+            /^== metadata differs/    { out = d "/meta"; next }
+            out { print > out }' work/full.txt
+          # pkgtb-compare's "content differs" also lists files present in only one image; keep common paths only
+          cat "$S/only_a" "$S/only_b" > work/only_either
+          grep -vxFf work/only_either "$S/content" > work/content_common || true
+          mv work/content_common "$S/content"
+          grep -v -e '^#' -e '^[[:space:]]*$' tools/compare-noise.txt > work/noise.re
+          grep -vEf work/noise.re "$S/content" > "$S/content_new" || true
+          grep -vEf work/noise.re "$S/only_a"  > "$S/only_a_new"  || true
+          grep -vEf work/noise.re "$S/only_b"  > "$S/only_b_new"  || true
+          n() { wc -l < "$1" | tr -d ' '; }
+          {
+            echo "A = official: $OFFICIAL_URL"
+            echo "    $(head -1 work/official/image-hashes.txt)"
+            echo "B = build run $RUN_ID (head commit $HEAD_SHA)"
+            echo "    $(head -1 work/build/image-hashes.txt)"
+            echo
+            echo "counts: only-in-A=$(n $S/only_a) only-in-B=$(n $S/only_b) content-differs=$(n $S/content) metadata-differs=$(n $S/meta)"
+            echo "not in tools/compare-noise.txt: only-in-A=$(n $S/only_a_new) only-in-B=$(n $S/only_b_new) content-differs=$(n $S/content_new)"
+            echo
+            echo "######## content differs, NOT in noise list ($(n $S/content_new))"; cat "$S/content_new"
+            echo "######## only in A (official), NOT in noise list ($(n $S/only_a_new))"; cat "$S/only_a_new"
+            echo "######## only in B (build), NOT in noise list ($(n $S/only_b_new))"; cat "$S/only_b_new"
+            echo
+            echo "######## full pkgtb-compare output"; cat work/full.txt
+          } > compare-report.txt
+          {
+            echo "### Build run $RUN_ID vs official"
+            echo
+            echo "A = official, B = build (commit \`$HEAD_SHA\`)"
+            echo
+            echo "| | only in A | only in B | content differs | metadata differs |"
+            echo "|---|---|---|---|---|"
+            echo "| all | $(n $S/only_a) | $(n $S/only_b) | $(n $S/content) | $(n $S/meta) |"
+            echo "| not in noise list | $(n $S/only_a_new) | $(n $S/only_b_new) | $(n $S/content_new) | - |"
+            for s in content_new only_a_new only_b_new; do
+              echo
+              echo "**$s** (first 200)"
+              echo '```'
+              head -n 200 "$S/$s"
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          head -n 12 compare-report.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compare-${{ env.RUN_ID }}
+          path: compare-report.txt
+          retention-days: 30
