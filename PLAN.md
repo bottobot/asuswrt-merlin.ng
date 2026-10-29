@@ -37,8 +37,9 @@ P6 management hardening + release discipline
 P0.1|S|15|-|DONE|upload EACCES fix: root container, docker user for clone+make|run 40698419243 green
 P0.2|O|15|-|DONE|baseline vs official, MERLINUPDATE=y|docs/baseline-*.md verdict
 P0.3|S|15|-|DONE|workflow: concurrency cancel, dispatch input `ref`, retention 30d, step summary sha256, paths-ignore docs/**|yaml+actionlint clean; dispatch run green
-P0.4|S|20|P0.3|DONE(untested on GH until merged)|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
-P0.5|H|10|P0.4|TODO|run compare-official on run 40886333807 (PR2 merge build)|0 unexplained diffs recorded in §5
+P0.4|S|20|P0.3|DONE|.github/workflows/compare-official.yml: on build success (workflow_run)+dispatch(run_id); fetch official zip, verify sha256 f6445385..., pkgtb-unpack both, pkgtb-compare, filter tools/compare-noise.txt, upload report|report artifact; "not-in-noise" list empty for unmodified build
+P0.5|H|10|P0.4|DONE|compare-official on default-branch build run 40898145376 (cef17c4): beyond noise only ./sbin/rc differs (= PR3 guards). compare run 40906828698|0 unexplained diffs
+P0.6|H|15|P0.5|TODO|metadata-differs=2407 vs ~70 in baseline doc: find cause (likely dir sizes or uid/gid in manifest.tsv); filter or fix pkgtb-unpack manifest so the count is meaningful|count explained, noise-filtered
 ### P1 (owner; scripts prepared by agents)
 P1.1|S|15|-|DONE(steps partly UNVERIFIED)|docs/RECOVERY.md (rescue mode, Firmware Restoration, TFTP, nvram reset, backup)|doc merged
 P1.2|U|20|P1.1|TODO|recovery drill on device with OFFICIAL 3006.102.9|§5: PASS + minutes
@@ -101,6 +102,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P2.5 review|1 major (monitor_asd log growth) fixed, amas_lanctrl kill added|d1e78f9
 2026-10-29|P2.6 CI all guards|PASS 45min|run 40890277244
 2026-10-29|P4.B1-B8 P5.GATE,B9-B14|commits prepared|PR 4
+2026-10-29|P0.5 compare|PASS: only sbin/rc beyond noise|run 40906828698
 2026-10-29|head build|FAIL httpd link prn_cert_info (IPSEC=n); moved out of IPSEC block|run 40907561586
 2026-10-29|source scan|3 certain breaks fixed pre-build: WIREGUARD kept, web.c brace, libasc for TPVPN|6ffc07b 09ad30d d91dc5c
 2026-10-29|head build|FAIL sdn.c VPNDIR_PROTO_OPENVPN (OPENVPN=n); B8 dropped|run 40902798521
