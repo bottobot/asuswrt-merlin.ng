@@ -86,9 +86,9 @@ P5.CFG|S|15|P3 cfgsync PASS|TODO|cfg_mnt/Makefile NO_CFGSERVER=y: skip cfg_serve
 P5.AMAS|O|-|-|CANCELLED|AMAS=n breaks GNP build (§8.1): prebuilt amas_apg.o/web_hook.o need CFGSYNC/LIBASUSLOG/ACCOUNT_BINDING symbols, MULTILAN code calls AMAS-only fns. CONNDIAG DBLOG CFGSYNC NOTIFICATION_CENTER stay compiled; runtime knobs only|-
 ### P6 hardening + release
 P6.1|U|10|P3.3|TODO|sshd key-only LAN-only, https-only (http_enable=1? verify value), disable http on WAN n/a, enable_acc_restriction w/ mgmt subnet|ap-baseline listen.txt: 22,443 only (+53/67 if dnsmasq KEEP)
-P6.2|S|15|P4|TODO|CI on tag v3006.102.9-apN: build+compare, GitHub pre-release "not for use", attach pkgtb+sha256+report|tag release works
-P6.3|S|15|-|TODO|tools/upstream-check.sh: new RMerl 3006.102-wifi6 commits touching files we patch|script output
-P6.4|O|10|P6.3|TODO|policy: stay pinned 102.9 (102.10 is WiFi7-only) vs rebase per point release|decision
+P6.2|S|15|P4|DONE(untested until first tag)|.github/workflows/release.yml: on tag v3006.102.9-ap*: reuse green build of tag commit (no rebuild) + successful compare-<run_id>; gh release --prerelease 'NOT FOR USE' with pkgtb, sha256sums, compare-report|first tag publishes
+P6.3|S|15|-|DONE|tools/upstream-check.sh [branch] [base]: fetch RMerl, list new commits + overlap with fork-patched files; prints NEW_COMMITS OVERLAP_COUNT VERSION_BUMP|run 2026-10-29: NEW_COMMITS=39 OVERLAP_COUNT=6 VERSION_BUMP=yes
+P6.4|U+O|10|P6.3|TODO(owner decision)|evidence 2026-10-29: upstream 3006.102-wifi6 has 39 commits past c73015d incl 1e043548f9 'Bumped revision to 3006.102.10 alpha1' (contradicts PR2 note '102.10 WiFi7-only'); overlaps: httpd TLS idle stall e0470de0b3, httpd 3 mem leaks f382a51904, watchdog fw-check rate a591c3b6bb, services UDP timeouts 45a5ffd741, Makefile 957b70e0a9 d4797eccc9. RECOMMEND: stay pinned on 102.9 for P1/P3 device work (stable baseline), cherry-pick e0470de0b3+f382a51904 (httpd = only kept web-facing daemon) as a small PR after review, rebase onto 102.10 final when released (re-run P0 baseline+compare)|decision recorded
 P6.5|H|10|P4|TODO|README Status <- link §5; CHANGES table sha|area|removed|listener_delta|committed
 
 ## 4.TARGETS (P6 exit)
