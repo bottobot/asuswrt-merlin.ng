@@ -4470,6 +4470,11 @@ int start_networkmap(int bootwait)
 		return 0;
 #endif
 
+	if (nvram_match("disable_networkmap", "1")) {
+		stop_networkmap();
+		return 0;
+	}
+
 	stop_networkmap();
 
 	if (bootwait)
@@ -8044,6 +8049,11 @@ int start_mdns(void)
 		NULL
 	};
 	pid_t pid;
+
+	if (nvram_match("disable_mdns", "1")) {
+		stop_mdns();
+		return 0;
+	}
 
 #ifdef RTAC68U
 	if (!hw_usb_cap())

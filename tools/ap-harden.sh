@@ -20,17 +20,17 @@ ntpd_enable=0|0|NTP server part off; ntp client unaffected
 telnetd_enable=0|0|telnet off
 snmpd_enable=0|0|snmp off
 firmware_check_enable=0|1|no phone-home fw check
-disable_infosvr=1|<unset>|infosvr udp9999 (needs rc guard)
-disable_networkmap=1|<unset>|networkmap (needs rc guard)
-disable_mdns=1|<unset>|avahi mdns (needs rc guard)
-disable_lldpd=1|<unset>|lldpd (needs rc guard)
+disable_infosvr=1|<unset>|infosvr udp9999
+disable_networkmap=1|<unset>|networkmap
+disable_mdns=1|<unset>|avahi mdns
+stop_amas_lldpd=1|<unset>|lldpd: existing knob, checked in start_amas_lldpd before notify hand-off; blocks start, does not kill a running lldpd (reboot)
 disable_cfgsync=1|<unset>|cfg_server tcp/udp7788 (needs rc guard)
 disable_conndiag=1|<unset>|conn_diag (needs rc guard)
 disable_amas_lib=1|<unset>|amas_lib (needs rc guard)
 disable_obd=1|<unset>|obd onboarding (needs rc guard)
-disable_asd=1|<unset>|asd (needs rc guard)
-disable_nt_center=1|<unset>|nt_center (needs rc guard)
-disable_wlc_nt=1|<unset>|wlc_nt (needs rc guard)
+disable_asd=1|<unset>|asd
+disable_nt_center=1|<unset>|nt_center
+disable_wlc_nt=1|<unset>|wlc_nt
 '
 
 UNSET='<unset>'

@@ -44,9 +44,9 @@ P1.4|U|15|P1.3|TODO|official image, AP mode, radios+GNP configured: `ap-baseline
 P1.5|U|15|P1.4,P0.5|TODO|flash CI build of default branch: `ap-baseline.sh ci-unmod`; `ap-diff.sh`|diff empty except buildno/version
 P1.6|S|10|P1.4|TODO|docs/LISTENERS.md from baseline: port|proto|proc|needed_AP|knob|plan_ref|every listener row filled
 ### P2 opt-in guards (knob unset => upstream behaviour)
-P2.1|S|20|-|WIP|guards A: wanduck(existing wanduck_down if watchdog honours) networkmap mdns lldpd|patch applies; start_+watchdog both guarded
+P2.1|S|20|-|DONE|guards A: wanduck=existing wanduck_down (watchdog.c honours via no_need_to_start_wanduck); lldpd=existing stop_amas_lldpd; NEW disable_networkmap (start+watchdog) disable_mdns (no respawn)|DONE in branch
 P2.2|S|20|-|WIP|guards B: disable_cfgsync(cfg_server+cfg_client) disable_conndiag disable_amas_lib disable_obd|same
-P2.3|S|20|-|WIP|guards C: disable_asd disable_nt_center disable_wlc_nt disable_dblog disable_awsiot; mastiff via existing aae_disable_force|same
+P2.3|S|20|-|DONE|guards C: NEW disable_asd disable_nt_center disable_wlc_nt; mastiff=existing aae_disable_force; dblog+awsiot not built for GT-AX6000 (FRS_FEEDBACK=n, no AWSIOT)|cd97594
 P2.4|S|20|P2.1-3|TODO|guards D: uploader asus_rbd amas_ctl auto_firmware_check (C9). research start paths first; split if >20min|same
 P2.5|O|15|P2.1-4|TODO|review all guards: #ifdef balance, no default change, stop_ before return, watchdog covered|review notes in PR
 P2.6|S|10|P2.5|TODO|apply patches, one commit per daemon group, dispatch CI on branch|CI green
@@ -54,7 +54,7 @@ P2.7|H|10|P2.6|TODO|compare-official vs P2 build: only sbin/rc + libshared diffe
 P2.8|H|10|P2.6|TODO|ap-harden.sh KNOBS list == knobs actually added (grep `nvram_match("disable_` rc/)|lists equal
 ### P3 on-device bisect (owner, scripts do the work)
 P3.1|U|10|P1.5,P2.7|TODO|flash P2 build, knobs unset; ap-diff vs ci-unmod|empty
-P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr asd awsiot nt_center wlc_nt dblog mastiff(aae) lldpd mdns networkmap conndiag wanduck amas_lib obd cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
+P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr asd nt_center wlc_nt mastiff(aae) lldpd(stop_amas_lldpd) mdns networkmap conndiag wanduck amas_lib obd cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
 P3.3|U|5|P3.2|TODO|all PASS knobs on together; 24h soak; full TESTPLAN|§5 PASS
 P3.4|O|10|P3.3|TODO|classify each daemon: OFF-SAFE (=>P4 candidate) | KEEP(reason)|table in §5
 ### P4 compile-out tier1 (flags from research; max 3 flags/build; 1 commit/flag; never ahead of P3.4 OFF-SAFE)

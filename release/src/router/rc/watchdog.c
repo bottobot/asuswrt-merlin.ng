@@ -7891,6 +7891,8 @@ void networkmap_check()
 	if ((sw_mode() == SW_MODE_AP && !nvram_match("cfg_master", "1")) && nvram_match("wifison_ready", "1"))
 		return;
 #endif
+	if (nvram_match("disable_networkmap", "1"))
+		return;
 	if (!pids("networkmap"))
 		start_networkmap(0);
 }
