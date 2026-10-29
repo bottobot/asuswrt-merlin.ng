@@ -3672,6 +3672,17 @@ void stop_samba(int force)
 }
 #endif	// defined(RTCONFIG_SAMBASRV) || defined(RTCONFIG_TUXERA_SMBD)
 
+#ifndef RTCONFIG_MEDIA_SERVER
+/*
+ * Closed-source prebuild/broadcom.o still references this symbol when the
+ * media server is not built. Report "no candidate" (0, dbdir untouched).
+ */
+int find_dms_dbdir_candidate(char *dbdir)
+{
+	return 0;
+}
+#endif
+
 #ifdef RTCONFIG_MEDIA_SERVER
 #define MEDIA_SERVER_APP	"minidlna"
 
