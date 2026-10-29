@@ -1138,6 +1138,10 @@ obj-$(RTCONFIG_LETSENCRYPT) += socat
 obj-y += sysstate
 
 obj-$(RTCONFIG_LIBASC) += libasc
+# rc links -lasc for TPVPN (rc/Makefile:618) even when ASD/AHS are off
+ifneq ($(RTCONFIG_LIBASC),y)
+obj-$(RTCONFIG_TPVPN) += libasc
+endif
 
 obj-$(RTCONFIG_AHS) += openssl
 obj-$(RTCONFIG_AHS) += curl
