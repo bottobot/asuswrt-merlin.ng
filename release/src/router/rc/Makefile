@@ -824,6 +824,10 @@ endif
 ifeq ($(RTCONFIG_AMAS),y)
 OBJS += amas_lib.o
 OBJS += linklist.o
+# prebuilt amas_lib.o references libbwdpi.so symbols; stub them when BWDPI=n
+ifneq ($(RTCONFIG_BWDPI),y)
+OBJS += bwdpi_stubs.o
+endif
 endif
 
 ifeq ($(RTCONFIG_TRAFFIC_LIMITER),y)
