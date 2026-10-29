@@ -31,8 +31,6 @@ disable_obd=1|<unset>|obd onboarding (needs rc guard)
 disable_asd=1|<unset>|asd (needs rc guard)
 disable_nt_center=1|<unset>|nt_center (needs rc guard)
 disable_wlc_nt=1|<unset>|wlc_nt (needs rc guard)
-disable_dblog=1|<unset>|dblog (needs rc guard)
-disable_awsiot=1|<unset>|awsiot (needs rc guard)
 '
 
 UNSET='<unset>'
