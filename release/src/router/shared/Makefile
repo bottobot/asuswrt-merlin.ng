@@ -571,6 +571,10 @@ endif
 
 ifeq ($(or $(RTCONFIG_GEARUPPLUGIN), $(RTCONFIG_UUPLUGIN)), y)
 OBJS += $(if $(wildcard uu_utils.c),uu_utils.o,prebuild/uu_utils.o)
+else ifneq ($(wildcard prebuild/$(BUILD_NAME)/uu_utils.o),)
+# Closed-source rc/private.o and libwebapi/priv_webapi.o import uu_model_check()
+# regardless of UUPLUGIN, so keep uu_utils.o linked whenever the model ships one.
+OBJS += $(if $(wildcard uu_utils.c),uu_utils.o,prebuild/uu_utils.o)
 endif
 
 ifeq ($(BUILD_NAME),$(filter $(BUILD_NAME),RT-BE82M GS-BE18000 GS-BE12000 GS7_PRO GT7))
