@@ -11952,7 +11952,7 @@ void auto_firmware_check_merlin()
 
 #ifdef RTCONFIG_ASD
 		//notify asd to download version file
-		if (pids("asd"))
+		if (!nvram_match("disable_asd", "1") && pids("asd"))
 		{
 			killall("asd", SIGUSR1);
 		}

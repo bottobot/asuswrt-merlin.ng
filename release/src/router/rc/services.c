@@ -4282,6 +4282,11 @@ int start_wlc_nt(void)
 		return 0;
 #endif
 
+	if (nvram_match("disable_wlc_nt", "1")) {
+		stop_wlc_nt();
+		return 0;
+	}
+
 	stop_wlc_nt();
 	ret = _eval(ev_argv, NULL, 0, &pid);
 
@@ -4312,6 +4317,11 @@ int start_wlc_monitor(void)
 	if(nvram_match("mfgfw", "1"))
 		return 0;
 #endif
+
+	if (nvram_match("disable_wlc_nt", "1")) {
+		stop_wlc_monitor();
+		return 0;
+	}
 
 	stop_wlc_monitor();
 	ret = _eval(ev_argv, NULL, 0, &pid);
@@ -6555,6 +6565,10 @@ void start_asd(void)
 #ifdef RTCONFIG_BCM_MFG
 	return;
 #endif
+	if (nvram_match("disable_asd", "1")) {
+		stop_asd();
+		return;
+	}
 	stop_asd();
 	xstart("asd");
 }
@@ -12341,6 +12355,11 @@ start_notification_center(void)
 {
 	char *nt_monitor_argv[] = {"nt_monitor", NULL};
 	pid_t pid;
+
+	if (nvram_match("disable_nt_center", "1")) {
+		stop_notification_center();
+		return 0;
+	}
 
 	if (mediabridge_mode())
 		return 0;
