@@ -21695,6 +21695,9 @@ void start_amas_lanctrl(void)
 		return;
 	}
 
+	if (nvram_match("disable_amas_ctl", "1") && nvram_get_int("re_mode") != 1)
+		return;
+
 	if(getpid()!=1) {
 		notify_rc("start_amas_lanctrl");
 		return;

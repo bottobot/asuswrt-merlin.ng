@@ -9680,6 +9680,9 @@ void amas_ctl_check()
 	}
 	else
 	{
+		/* AP/router (non-RE): only amas_lanctrl is watched here */
+		if (nvram_match("disable_amas_ctl", "1"))
+			return;
 #if defined(RTCONFIG_FRONTHAUL_DWB) || defined(RTCONFIG_VIF_ONBOARDING)
 #if !defined(RTCONFIG_NOWL)
 #if defined(RPBE58) && defined(RTCONFIG_BCM_MFG)

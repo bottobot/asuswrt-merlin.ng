@@ -28,6 +28,7 @@ disable_cfgsync=1|<unset>|cfg_server tcp/udp7788 (needs rc guard)
 disable_conndiag=1|<unset>|conn_diag (needs rc guard)
 disable_amas_lib=1|<unset>|amas_lib (needs rc guard)
 disable_obd=1|<unset>|obd onboarding (needs rc guard)
+disable_amas_ctl=1|<unset>|amas_lanctrl (AiMesh VIF onboarding/LAN control); non-RE only; test GNP after
 disable_asd=1|<unset>|asd
 disable_nt_center=1|<unset>|nt_center
 disable_wlc_nt=1|<unset>|wlc_nt
