@@ -4,9 +4,19 @@ name: build-gt-ax6000
 # Recipe: RMerl tools/build-all (SDK src-rt-5.04axhnd.675x, `make gt-ax6000`) + gnuton's CI layout.
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or full commit SHA to build (empty = the branch this run was dispatched on)'
+        required: false
+        default: ''
+        type: string
   push:
     branches: [ap-stripdown]
-    paths-ignore: ['**.md']
+    paths-ignore: ['**.md', 'docs/**', 'tools/ap-*.sh']
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -31,9 +41,19 @@ jobs:
           df -h / /project
           ls /home/docker/am-toolchains/brcm-arm-hnd/ | grep -i 9.2
       - name: Clone this branch
+        env:
+          INPUT_REF: ${{ inputs.ref }}   # empty on push and when not given on dispatch
         run: |
           chown docker /project
-          sudo -u docker -H git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" /project/src
+          REF="${INPUT_REF:-$GITHUB_REF_NAME}"
+          URL="https://github.com/$GITHUB_REPOSITORY.git"
+          if printf '%s' "$REF" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            # --branch does not accept SHAs: fetch the commit by id, then check it out
+            sudo -u docker -H bash -c 'set -e; git init -q /project/src; cd /project/src; git remote add origin "$1"; git fetch --depth 1 origin "$2"; git checkout -q FETCH_HEAD' _ "$URL" "$REF"
+          else
+            sudo -u docker -H git clone --depth 1 --branch "$REF" "$URL" /project/src
+          fi
+          sudo -u docker -H git -C /project/src log -1 --format='building %H %s'
       - name: Build
         id: build
         shell: bash
@@ -53,17 +73,31 @@ jobs:
           mkdir -p /project/out
           cp "$SDK_DIR"/image/*_nand_squashfs.pkgtb /project/out/
           cd /project/out && sha256sum * > sha256sums.txt && cat sha256sums.txt && ls -l
+          {
+            echo "### GT-AX6000 image"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            for f in /project/out/*.pkgtb; do
+              echo "| image | \`$(basename "$f")\` |"
+              echo "| size | $(stat -c %s "$f") bytes |"
+              echo "| sha256 | \`$(sha256sum "$f" | cut -d' ' -f1)\` |"
+            done
+            echo "| commit | \`$(sudo -u docker -H git -C /project/src rev-parse HEAD)\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: gt-ax6000-${{ github.sha }}
           path: /project/out/
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: build-log-${{ github.sha }}
           path: /project/build.log
           if-no-files-found: ignore
+          retention-days: 30
       - name: Verify firmware artifact was uploaded
         if: always()
         env:
