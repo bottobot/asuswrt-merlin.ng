@@ -2,7 +2,8 @@
 fmt: machine-readable. task=`ID|tier|min|dep|status|action|done_when`. tier: H=haiku S=sonnet O=opus(review/gate only) U=owner(hardware, cannot delegate). min<=20; overrun => split in place, never continue. status: DONE|WIP|TODO|BLOCKED(reason).
 facts_ref=docs/gt-ax6000-ap-plan.md (investigation: service inventory, flags, CVEs). baseline_ref=docs/baseline-3006.102.9-ci-vs-official.md. this file=single source for WHAT/ORDER/STATUS; v1 superseded.
 base=Merlin 3006.102.9 (3006.102-wifi6 @c73015d). sdk=release/src-rt-5.04axhnd.675x make=gt-ax6000. flags=release/src-rt/target.mak:197-221. flag->RTCONFIG+forced deps=release/src-rt/Makefile. pkg gating=release/src/router/Makefile. rc=release/src/router/rc/{services,watchdog,lan,wan}.c.
-ci=.github/workflows/build-gt-ax6000.yml (root container, clone+make as docker, MERLINUPDATE=y, digest-pinned, 45-63min). cloud sandbox: no build (no toolchain/docker/disk), artifact download blocked (blob 403) => all image work runs in CI.
+ci=.github/workflows/build-gt-ax6000.yml (root container, clone+make as docker, MERLINUPDATE=y, digest-pinned, 45-63min, dispatch-only). cloud sandbox: no build (no toolchain/docker/disk), artifact download blocked (blob 403) => all image work runs in CI.
+ci_rule=build each change once: dispatch build-gt-ax6000 on the PR branch only when the PR is ready (ref=<branch>); after a red build fix every error that log shows before dispatching again; merge without rebuilding (no push trigger since 2026-10-31); a release needs one dispatch on the tag commit (release.yml requires a successful build of that exact commit)
 
 ## 1.CRITIQUE (v1 PLAN.md + docs/gt-ax6000-ap-plan.md §6)
 C1|v1 E2 WRONG|on Broadcom `access_point_mode()`=sw_mode==3&&!wlc_psta (shared/shared.h:2074); does NOT exclude re_mode. v1 rule "use access_point_mode() to cover re_mode" false.

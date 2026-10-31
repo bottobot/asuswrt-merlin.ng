@@ -2,6 +2,7 @@ name: build-gt-ax6000
 
 # Builds GT-AX6000 firmware from this branch in gnuton's Merlin toolchain container.
 # Recipe: RMerl tools/build-all (SDK src-rt-5.04axhnd.675x, `make gt-ax6000`) + gnuton's CI layout.
+# Builds run only when dispatched, once per change; merges do not rebuild (Actions was paused 2026-10-29 for usage scale).
 on:
   workflow_dispatch:
     inputs:
@@ -10,9 +11,6 @@ on:
         required: false
         default: ''
         type: string
-  push:
-    branches: [ap-stripdown]
-    paths-ignore: ['**.md', 'docs/**', 'tools/ap-*.sh']
 
 concurrency:
   group: build-${{ github.ref }}
@@ -42,7 +40,7 @@ jobs:
           ls /home/docker/am-toolchains/brcm-arm-hnd/ | grep -i 9.2
       - name: Clone this branch
         env:
-          INPUT_REF: ${{ inputs.ref }}   # empty on push and when not given on dispatch
+          INPUT_REF: ${{ inputs.ref }}   # empty when not given on dispatch
         run: |
           chown docker /project
           REF="${INPUT_REF:-$GITHUB_REF_NAME}"
