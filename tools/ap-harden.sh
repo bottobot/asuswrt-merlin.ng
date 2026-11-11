@@ -32,6 +32,7 @@ disable_amas_ctl=1|<unset>|amas_lanctrl (AiMesh VIF onboarding/LAN control); non
 disable_asd=1|<unset>|asd
 disable_nt_center=1|<unset>|nt_center
 disable_wlc_nt=1|<unset>|wlc_nt
+disable_awsiot=1|<unset>|awsiot: AWS IoT MQTT client (cloud shadow can set nvram+restart services); forced on by AMAS; app remote mgmt lost
 '
 
 UNSET='<unset>'

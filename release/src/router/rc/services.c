@@ -4247,6 +4247,8 @@ int start_awsiot(void)
 
 	stop_awsiot();
 
+	if (nvram_match("disable_awsiot", "1"))
+		return 0;
 
 	ret = _eval(ev_argv, NULL, 0, &pid);
 

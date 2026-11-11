@@ -53,7 +53,7 @@ Built, not yet tested on hardware. No build from this repository is recommended 
 anyone, including me.
 
 - Opt-in nvram switches can stop daemons an access point does not use (infosvr,
-  networkmap, avahi, asd, AiMesh helpers and others). With every switch unset the
+  networkmap, avahi, asd, the AWS IoT cloud client, AiMesh helpers and others). With every switch unset the
   router behaves like upstream. `tools/ap-harden.sh` sets and reverts them.
 - Unused features are compiled out: VPN servers, Trend Micro DPI, media server,
   Time Machine, NFS, printing, captive portal, ASUS cloud tunnel, SNMP, Tor, speed

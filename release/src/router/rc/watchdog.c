@@ -7944,6 +7944,8 @@ void fbwifi_check()
 void awsiot_check()
 {
 #ifdef RTCONFIG_AWSIOT
+	if (nvram_match("disable_awsiot", "1"))
+		return;
 	if (!pids("awsiot"))
 		start_awsiot();
 #endif
