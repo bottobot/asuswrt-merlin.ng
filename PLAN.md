@@ -58,7 +58,7 @@ P2.5|O|15|P2.1-4|DONE|review all guards: #ifdef balance, no default change, stop
 P2.6|S|10|P2.5|DONE|apply patches, one commit per daemon group, dispatch CI on branch|CI green
 P2.7|H|10|P2.6|DONE|compare-official vs P2 build (default-branch run 40898145376, cef17c4): beyond noise only sbin/rc|compare run 40906828698
 P2.8|H|10|P2.6|DONE|ap-harden.sh KNOBS list == knobs actually added (grep `nvram_match("disable_` rc/)|lists equal
-P2.9|S|10|-|BUILT?(CI pending)|NEW disable_awsiot: start_awsiot return after stop_awsiot (services.c:4250) + awsiot_check early return (watchdog.c:7947); ap-harden.sh knob; PR886 claims rechecked (docs/gt-ax6000-ap-plan.md §5 PR886_claims_recheck)|CI green; P2.8 lists equal
+P2.9|S|10|-|BUILT(CI green; flash pending)|NEW disable_awsiot: start_awsiot return after stop_awsiot (services.c:4250) + awsiot_check early return (watchdog.c:7947); ap-harden.sh knob; PR886 claims rechecked (docs/gt-ax6000-ap-plan.md §5 PR886_claims_recheck)|CI green; P2.8 lists equal
 ### P3 on-device bisect (owner, scripts do the work)
 P3.1|U|10|P1.5,P2.7|TODO|flash P2 build, knobs unset; ap-diff vs ci-unmod|empty
 P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr asd nt_center wlc_nt awsiot mastiff(aae) lldpd(stop_amas_lldpd) mdns networkmap conndiag wanduck amas_lib obd amas_ctl cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
@@ -121,6 +121,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 2026-10-29|P4 tip build|FAIL WAN_UNIT_IPTV (MULTICASTIPTV=n); flag kept|run 40898342703, fix ffa4a2e
 
 2026-11-11|P2.9 disable_awsiot|code+docs; PR886 recheck: asus_mfg claim not reproduced in source, http_enable claim wrong (lo-only bind), awsiot claim valid|this PR
+2026-11-11|P2.9 CI|build PASS 30min; compare PASS: critical 26/26, new dangling 0, removals unchanged vs PR4 set|build 43073246126 compare 43078085574
 
 ## 6.EXECUTION RULES
 E1 one task per agent; brief=task line+file refs+done_when; agent returns diff/output+1-line result; agents never commit, push or edit PLAN.md.
