@@ -4521,6 +4521,11 @@ int start_lltdc(void)
 	char *lld2c_argv[] = {"lld2c", "br0", NULL};
 	pid_t pid;
 
+	if (nvram_match("disable_lltd", "1")) {
+		stop_lltdc();
+		return 0;
+	}
+
 	if (pids("lld2c"))
 		return 0;
 
@@ -7768,6 +7773,11 @@ int write_lltd_conf(void)
 
 int start_lltd(void)
 {
+	if (nvram_match("disable_lltd", "1")) {
+		stop_lltd();
+		return 0;
+	}
+
 	chdir("/usr/sbin");
 
 #if defined(CONFIG_BCMWL5) && !defined(RTCONFIG_BCMARM)
