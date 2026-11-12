@@ -8726,7 +8726,7 @@ void generate_wl_para(char *ifname, int unit, int subunit)
 		}
 #endif
 		nvram_set("lan_wps_oob", nvram_match("w_Setting", "1") ? "disabled" : "enabled");
-		nvram_set(strcat_r(prefix, "wps_mode", tmp), (nvram_match("wps_enable", "1") && (is_ap(unit)
+		nvram_set(strcat_r(prefix, "wps_mode", tmp), (!nvram_match("disable_wps", "1") && nvram_match("wps_enable", "1") && (is_ap(unit)
 #ifdef RTCONFIG_PROXYSTA
 			|| (((unit == WL_2G_BAND) || unit == nvram_get_int("wps_band_x")) && (is_dpsr(unit)
 #ifdef RTCONFIG_DPSTA

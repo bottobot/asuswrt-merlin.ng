@@ -3560,6 +3560,10 @@ int no_need_to_start_wps(void)
 	char word[256], *next, ifnames[128];
 	int c = 0, ret = 0;
 
+	/* covers check_wps_enable (forces wps_enable_x=0), start_wps_pbc, watchdog WPS button */
+	if (nvram_match("disable_wps", "1"))
+		return 1;
+
 #ifdef RTCONFIG_DSL
 	if (nvram_match("asus_mfg", "1")) /* Paul add 2012/12/13 */
 		return 0;
@@ -3857,7 +3861,7 @@ start_wpsaide()
 
 	stop_wpsaide();
 
-	if (mediabridge_mode())
+	if (mediabridge_mode() || nvram_match("disable_wps", "1"))
 		return ret;
 
 	ret = _eval(wpsaide_argv, NULL, 0, &pid);
@@ -3954,11 +3958,11 @@ start_wps(void)
 	killall_tk("wps_enr");
 	unlink("/tmp/wps_monitor.pid");
 #endif
-	if (nvram_match("wps_enable", "1")
+	if ((nvram_match("wps_enable", "1")
 #ifdef RTCONFIG_AMAS
 		|| nvram_get_int("amesh_wps_enr")
 #endif
-	) {
+	) && !nvram_match("disable_wps", "1")) {
 #ifdef CONFIG_BCMWL5
 		nvram_set("wl_wps_mode", "enabled");
 		if (!restore_defaults_g)
