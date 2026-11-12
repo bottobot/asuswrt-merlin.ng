@@ -134,6 +134,8 @@ extern int restart_hostapd_per_radio_wps_ob(int radio_idx);
 int
 start_wps_method_ob(void)
 {
+	if (nvram_match("disable_wps", "1"))
+		return 0;
 #ifdef RTCONFIG_BRCM_HOSTAPD
 	int wps_band;
 	char prefix[] = "wlXXXXXX_";
@@ -366,6 +368,9 @@ start_wps_method(void)
 #if defined(RTCONFIG_WIFI6E) || defined(RTCONFIG_HAS_6G)
 	int band;
 #endif
+
+	if (nvram_match("disable_wps", "1"))
+		return 0;
 
 	if (getpid()!=1) {
 		notify_rc("start_wps_method");

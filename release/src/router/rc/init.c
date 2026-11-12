@@ -22893,7 +22893,8 @@ NO_USB_CAP:
 	//add_rc_support("nt_center");	//UI hide
 #endif
 #ifdef RTCONFIG_NETOOL
-	add_rc_support("netool");
+	if (!nvram_match("disable_netool", "1"))
+		add_rc_support("netool");
 #endif
 #ifdef RTCONFIG_DISABLE_NETWORKMAP
 	add_rc_support("disable_nwmd");

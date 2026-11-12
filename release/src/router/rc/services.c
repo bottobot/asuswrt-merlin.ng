@@ -3560,6 +3560,10 @@ int no_need_to_start_wps(void)
 	char word[256], *next, ifnames[128];
 	int c = 0, ret = 0;
 
+	/* covers check_wps_enable (forces wps_enable_x=0), start_wps_pbc, watchdog WPS button */
+	if (nvram_match("disable_wps", "1"))
+		return 1;
+
 #ifdef RTCONFIG_DSL
 	if (nvram_match("asus_mfg", "1")) /* Paul add 2012/12/13 */
 		return 0;
@@ -3857,7 +3861,7 @@ start_wpsaide()
 
 	stop_wpsaide();
 
-	if (mediabridge_mode())
+	if (mediabridge_mode() || nvram_match("disable_wps", "1"))
 		return ret;
 
 	ret = _eval(wpsaide_argv, NULL, 0, &pid);
@@ -3954,11 +3958,11 @@ start_wps(void)
 	killall_tk("wps_enr");
 	unlink("/tmp/wps_monitor.pid");
 #endif
-	if (nvram_match("wps_enable", "1")
+	if ((nvram_match("wps_enable", "1")
 #ifdef RTCONFIG_AMAS
 		|| nvram_get_int("amesh_wps_enr")
 #endif
-	) {
+	) && !nvram_match("disable_wps", "1")) {
 #ifdef CONFIG_BCMWL5
 		nvram_set("wl_wps_mode", "enabled");
 		if (!restore_defaults_g)
@@ -4247,6 +4251,8 @@ int start_awsiot(void)
 
 	stop_awsiot();
 
+	if (nvram_match("disable_awsiot", "1"))
+		return 0;
 
 	ret = _eval(ev_argv, NULL, 0, &pid);
 
@@ -4518,6 +4524,11 @@ int start_lltdc(void)
 {
 	char *lld2c_argv[] = {"lld2c", "br0", NULL};
 	pid_t pid;
+
+	if (nvram_match("disable_lltd", "1")) {
+		stop_lltdc();
+		return 0;
+	}
 
 	if (pids("lld2c"))
 		return 0;
@@ -7766,6 +7777,11 @@ int write_lltd_conf(void)
 
 int start_lltd(void)
 {
+	if (nvram_match("disable_lltd", "1")) {
+		stop_lltd();
+		return 0;
+	}
+
 	chdir("/usr/sbin");
 
 #if defined(CONFIG_BCMWL5) && !defined(RTCONFIG_BCMARM)
@@ -12432,6 +12448,11 @@ start_netool(void)
 {
 	char *netool_argv[] = {"/sbin/netool", NULL};
 	pid_t pid;
+
+	if (nvram_match("disable_netool", "1")) {
+		stop_netool();
+		return 0;
+	}
 
 	if(getpid() != 1) { //not rc init process
 		notify_rc("start_netool");

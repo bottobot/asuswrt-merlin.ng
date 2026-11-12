@@ -28,8 +28,9 @@ T20|power-cycle survives|pull DC 10 s, restore; wait 180 s; T00 + T02 + T03|same
 T21|LEDs sane|visual: power LED steady; radio LEDs per setting; AllLED (`nvram get AllLED`) toggle works from GUI|no stuck blink; LED state matches setting
 T22|buttons sane|press WPS briefly (should do nothing destructive / WPS only if enabled); do NOT hold reset|no reboot, no factory reset; LED/GUI state unchanged
 T23|time sync|`date; nvram get ntp_server0; nvram get ntpd_enable`|date within 60 s of reference; ntpd_enable=0 (client only)
-T24|no cloud/telemetry procs|ssh: `ps w` (inspect for names: mastiff aaews asd conn_diag cfg_server infosvr wanduck networkmap avahi-daemon)|none of the names present, or each present proc listed as accepted in PLAN-STATUS.md for this build phase
+T24|no cloud/telemetry procs|ssh: `ps w` (inspect for names: mastiff aaews awsiot asd conn_diag cfg_server infosvr wanduck networkmap avahi-daemon netool lld2d lld2c wps_monitor wps_pbcd wpsaide)|none of the names present, or each present proc listed as accepted in PLAN-STATUS.md for this build phase
 T25|log clean at idle|ssh: `logread -l 100` (or `tail -n 100 /tmp/syslog.log`)|no repeated crash/respawn loops (same daemon restarted by watchdog every cycle)
+T26|WPS off and button inert|iff disable_wps=1: `nvram get wps_enable_x; nvram get wl0_wps_mode; nvram get wl1_wps_mode; grep -h wps_state /tmp/*.conf`; press WPS button 3 s; re-run; phone/laptop WiFi scan shows no WPS on SSIDs|wps_enable_x=0 and wlX_wps_mode=disabled before and after press; no wps_state=2 in hostapd confs; scan shows no WPS
 T30|30 min soak without resets|record `date`; wait 30 min; ssh: `uptime; dmesg; wl -i <if> status` per radio|uptime >=30 min (no unplanned reboot); no new line matching wl, dhd, reset, oops or panic vs T01 dmesg (ap-baseline sys.txt lists them); radios still up; clients from T02/T03 still associated
 T31|final baseline|`sh /jffs/ap-baseline.sh $LABEL-soak $B`; `sh tools/ap-diff.sh baseline/$LABEL baseline/$LABEL-soak`|only `#V` volatile lines differ (ap-diff exit 0), or every difference explained
 
