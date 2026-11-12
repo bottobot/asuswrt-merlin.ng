@@ -12435,6 +12435,11 @@ start_netool(void)
 	char *netool_argv[] = {"/sbin/netool", NULL};
 	pid_t pid;
 
+	if (nvram_match("disable_netool", "1")) {
+		stop_netool();
+		return 0;
+	}
+
 	if(getpid() != 1) { //not rc init process
 		notify_rc("start_netool");
 		return 0;
