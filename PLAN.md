@@ -22,6 +22,7 @@ C13|both GAP|no rule for docs drift (two plans diverged in one day). Rule E8.
 C14|v2 draft gate too strict|P4 build-only validation does not need hardware; only flashing does. Gate relaxed for CI, kept for flash.
 C16|research GAP|§8.5 scanned prebuilt LINK refs only; compile-time uses of flag-only identifiers in source (e.g. WAN_UNIT_IPTV) were missed. Added source #if-aware scan before each build.
 C17|P2.3 FACT WRONG|AMAS=y forces RTCONFIG_AWSIOT=y for non RP- builds (src-rt/Makefile:3928 block, 4105-4110) => awsiot built+started+watchdog-respawned on GT-AX6000. fixed by P2.9 knob (AWSIOT=n impossible while AMAS=y)
+C18|WPS GAP|GUI wps_enable_x=0 not durable: HW WPS button -> wpsaide -> start_wps_pbc sets wps_enable_x=1 + restart_wireless (services.c:3804). knob disable_wps via no_need_to_start_wps (P2.10)
 C15|both plans WRONG|AMAS=n listed as final step (v1 P5.6, PR2 P3): research shows it breaks GNP build; cancelled. 7 flags (ASD MEDIASRV UUPLUGIN BWDPI IPSEC INSTANT_GUARD ALEXA+GOOGLE_ASST) break rc/httpd link via prebuilt .o refs; CONNDIAG DBLOG silently forced by AMAS; NATNL_AIHOME forced by ALEXA. v1 P4.3/P4.4 (DBLOG=n CONNDIAG=n) were no-ops.
 DONE_since_v1: CI green+artifact verify (4c2f436, PR2 root fix 98fd4e0); baseline vs official (985f9b0) => only real diff MERLINUPDATE, fixed (55c9f3a), re-baselined (1011371): reproduces official up to build noise; tools/pkgtb-{unpack,compare}.sh (PR2); disable_infosvr guard (3151f6c, CI green run 40700438258).
 
@@ -58,10 +59,11 @@ P2.5|O|15|P2.1-4|DONE|review all guards: #ifdef balance, no default change, stop
 P2.6|S|10|P2.5|DONE|apply patches, one commit per daemon group, dispatch CI on branch|CI green
 P2.7|H|10|P2.6|DONE|compare-official vs P2 build (default-branch run 40898145376, cef17c4): beyond noise only sbin/rc|compare run 40906828698
 P2.8|H|10|P2.6|DONE|ap-harden.sh KNOBS list == knobs actually added (grep `nvram_match("disable_` rc/)|lists equal
+P2.10|S|20|P2.9|BUILT?(CI pending)|NEW disable_netool (start_netool + rc_support hide) disable_lltd (start_lltd+start_lltdc) disable_wps (no_need_to_start_wps, start_wps, start_wpsaide, start_wps_method(_ob), init-broadcom wlX_wps_mode); ap-harden.sh + wps_enable_x=0; sweep in docs/gt-ax6000-ap-plan.md §5 persistent_service_sweep|CI green; P2.8 lists equal; device: WPS IE absent, button no-op
 P2.9|S|10|-|BUILT(CI green; flash pending)|NEW disable_awsiot: start_awsiot return after stop_awsiot (services.c:4250) + awsiot_check early return (watchdog.c:7947); ap-harden.sh knob; PR886 claims rechecked (docs/gt-ax6000-ap-plan.md §5 PR886_claims_recheck)|CI green; P2.8 lists equal
 ### P3 on-device bisect (owner, scripts do the work)
 P3.1|U|10|P1.5,P2.7|TODO|flash P2 build, knobs unset; ap-diff vs ci-unmod|empty
-P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr asd nt_center wlc_nt awsiot mastiff(aae) lldpd(stop_amas_lldpd) mdns networkmap conndiag wanduck amas_lib obd amas_ctl cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
+P3.2|U|10/knob|P3.1|TODO|per knob order: infosvr lltd netool wps asd nt_center wlc_nt awsiot mastiff(aae) lldpd(stop_amas_lldpd) mdns networkmap conndiag wanduck amas_lib obd amas_ctl cfgsync(last: GNP risk). `ap-harden.sh apply <knob>`, reboot, TESTPLAN quick(radios, GNP VLAN, https, ssh)|per knob PASS/FAIL in §5
 P3.3|U|5|P3.2|TODO|all PASS knobs on together; 24h soak; full TESTPLAN|§5 PASS
 P3.4|O|10|P3.3|TODO|classify each daemon: OFF-SAFE (=>P4 candidate) | KEEP(reason)|table in §5
 ### P4 compile-out tier1: flag-only, no prebuilt link refs (source: docs/gt-ax6000-ap-plan.md §8.5)
@@ -122,6 +124,7 @@ listeners_LAN<=tcp22,tcp443(+udp53,udp67 iff dnsmasq KEEP); 0 ASUS cloud/discove
 
 2026-11-11|P2.9 disable_awsiot|code+docs; PR886 recheck: asus_mfg claim not reproduced in source, http_enable claim wrong (lo-only bind), awsiot claim valid|this PR
 2026-11-11|P2.9 CI|build PASS 30min; compare PASS: critical 26/26, new dangling 0, removals unchanged vs PR4 set|build 43073246126 compare 43078085574
+2026-11-12|P2.10 netool lltd wps knobs|code+docs; ap-harden mock apply/status/revert ok; knob lists equal|this PR
 
 ## 6.EXECUTION RULES
 E1 one task per agent; brief=task line+file refs+done_when; agent returns diff/output+1-line result; agents never commit, push or edit PLAN.md.

@@ -32,6 +32,10 @@ disable_amas_ctl=1|<unset>|amas_lanctrl (AiMesh VIF onboarding/LAN control); non
 disable_asd=1|<unset>|asd
 disable_nt_center=1|<unset>|nt_center
 disable_wlc_nt=1|<unset>|wlc_nt
+disable_netool=1|<unset>|netool: root backend of GUI Network Tools (ping/traceroute/netstat/nslookup via system()); GUI tab hidden after reboot
+disable_lltd=1|<unset>|lld2d LLTD responder (raw L2 on br0) + lld2c LLTD client (client icons; useless w/o networkmap)
+disable_wps=1|<unset>|all WPS: forces wps_enable_x=0, wlX_wps_mode=disabled; no wps_monitor/wps_pbcd/wpsaide; HW button + GUI/rc wps_method ignored (stock: button re-enables WPS)
+wps_enable_x=0|1|GUI WPS switch off (redundant with disable_wps; also effective on stock firmware except HW button)
 disable_awsiot=1|<unset>|awsiot: AWS IoT MQTT client (cloud shadow can set nvram+restart services); forced on by AMAS; app remote mgmt lost
 '
 
