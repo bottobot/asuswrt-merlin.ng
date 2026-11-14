@@ -16,7 +16,7 @@ have put into Asuswrt-Merlin over the years. I have run it on my own routers for
 and really appreciate it. This fork does not try to improve on it; it only trims it for one
 narrow use.
 
-In that role, stock firmware still runs and listens for things an access point never uses:
+Used as an access point, stock firmware still runs and listens for things that role never needs:
 ASUS device discovery, WAN detection, AiMesh sync, cloud clients, telemetry, file sharing and
 more. This fork removes or switches those off, and keeps what an access point does need:
 
