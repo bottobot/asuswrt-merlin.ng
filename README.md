@@ -8,10 +8,13 @@
 
 ## What this is
 
-[Asuswrt-Merlin](https://www.asuswrt-merlin.net/), by Eric Sauvageau (RMerl) and its
-contributors, has kept ASUS routers maintained and improved for years. This fork does not try
-to improve on it. It narrows it to one job: a GT-AX6000 used **only as a wireless access
-point** behind a separate firewall.
+An independent project built on [Asuswrt-Merlin](https://www.asuswrt-merlin.net/), narrowed to
+one job: a GT-AX6000 used **only as a wireless access point** behind a separate firewall.
+
+I have huge respect for the amount of work Eric Sauvageau (RMerl) and the Merlin contributors
+have put into Asuswrt-Merlin over the years. I have run it on my own routers for a long time
+and really appreciate it. This fork does not try to improve on it; it only trims it for one
+narrow use.
 
 In that role, stock firmware still runs and listens for things an access point never uses:
 ASUS device discovery, WAN detection, AiMesh sync, cloud clients, telemetry, file sharing and
@@ -21,9 +24,20 @@ more. This fork removes or switches those off, and keeps what an access point do
 - the web interface (HTTPS) and SSH administration
 - NTP time, WireGuard and OpenVPN (left in; see [`PLAN.md`](PLAN.md) P4.B8)
 
-It is based on Merlin **3006.102.9** (`3006.102-wifi6` at `c73015d`). It is not affiliated
-with Asuswrt-Merlin or ASUS, so please do not take problems found here to the Merlin forums or
-issue tracker. Report them in this repository's issues.
+It is based on Merlin **3006.102.9** (`3006.102-wifi6` at `c73015d`).
+
+## Support
+
+This is an independent project, not affiliated with or endorsed by Asuswrt-Merlin or ASUS.
+Support is limited: it is maintained by one person in spare time, so replies may be slow or
+may not come at all.
+
+**Please do not take anything about this fork to RMerl, the Merlin issue tracker or the Merlin
+forums on SNBForums.** A problem seen on this firmware is much more likely to come from a
+change made here than from upstream, and reporting it there costs volunteers time they should
+spend on Merlin itself. Open an issue in this repository instead, and include the build commit
+and the output of `sh /jffs/ap-harden.sh status`. If you can reproduce a problem on the
+official Merlin firmware without anything from this fork, it belongs upstream as usual.
 
 ## Status
 
